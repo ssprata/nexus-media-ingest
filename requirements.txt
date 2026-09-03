@@ -1,2 +1,4 @@
 PyQt6>=6.4.0
 requests>=2.31.0
+yt-dlp>=2026.8.19
+instaloader>=4.13

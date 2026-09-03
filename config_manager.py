@@ -17,7 +17,8 @@ DEFAULT_PROFILES = [
         },
         "ytdlp_settings": {},
         "gallerydl_settings": {},
-        "spotdl_settings": {}
+        "spotdl_settings": {},
+        "instagram_settings": {}
     },
     {
         "name": "YouTube Video (yt-dlp)",
@@ -30,11 +31,17 @@ DEFAULT_PROFILES = [
             "video_format": "mp4",
             "extract_audio": False,
             "embed_subs": True,
+            "premiere_compatible": True,
+            "cookie_source": "none",
+            "cookie_file": "",
+            "proxy": "",
+            "sleep_requests": "",
             "custom_flags": ""
         },
         "aria2_settings": {},
         "gallerydl_settings": {},
-        "spotdl_settings": {}
+        "spotdl_settings": {},
+        "instagram_settings": {}
     },
     {
         "name": "YouTube Music (yt-dlp)",
@@ -50,7 +57,8 @@ DEFAULT_PROFILES = [
         },
         "aria2_settings": {},
         "gallerydl_settings": {},
-        "spotdl_settings": {}
+        "spotdl_settings": {},
+        "instagram_settings": {}
     },
     {
         "name": "Image Galleries (gallery-dl)",
@@ -62,7 +70,8 @@ DEFAULT_PROFILES = [
         },
         "aria2_settings": {},
         "ytdlp_settings": {},
-        "spotdl_settings": {}
+        "spotdl_settings": {},
+        "instagram_settings": {}
     },
     {
         "name": "Spotify Download (spotdl)",
@@ -76,7 +85,26 @@ DEFAULT_PROFILES = [
         },
         "aria2_settings": {},
         "ytdlp_settings": {},
-        "gallerydl_settings": {}
+        "gallerydl_settings": {},
+        "instagram_settings": {}
+    },
+    {
+        "name": "Instagram Post/Reel (instaloader)",
+        "tool": "instagram",
+        "folder": "",
+        "export_dir": os.path.expanduser("~/Downloads"),
+        "instagram_settings": {
+            "download_pictures": True,
+            "download_videos": True,
+            "download_metadata": False,
+            "download_comments": False,
+            "output_type": "video_mp4",
+            "custom_flags": ""
+        },
+        "aria2_settings": {},
+        "ytdlp_settings": {},
+        "gallerydl_settings": {},
+        "spotdl_settings": {}
     }
 ]
 
@@ -106,6 +134,18 @@ class ConfigManager:
                                     "audio_quality": "best",
                                     "custom_flags": ""
                                 }
+                            if "instagram_settings" not in p or not isinstance(p["instagram_settings"], dict):
+                                p["instagram_settings"] = {
+                                    "download_pictures": True,
+                                    "download_videos": True,
+                                    "download_metadata": False,
+                                    "download_comments": False,
+                                    "output_type": "video_mp4",
+                                    "custom_flags": ""
+                                }
+                            else:
+                                if "output_type" not in p["instagram_settings"]:
+                                    p["instagram_settings"]["output_type"] = "video_mp4"
                             if "ytdlp_settings" in p and isinstance(p["ytdlp_settings"], dict):
                                 if "video_format" not in p["ytdlp_settings"]:
                                     p["ytdlp_settings"]["video_format"] = p["ytdlp_settings"].get("merge_output_format", "best")

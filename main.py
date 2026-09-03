@@ -29,6 +29,8 @@ class FirstTimeSetupWindow(QWidget):
             self.to_download.append("aria2c")
         if not self.dep_manager.is_installed("yt-dlp"):
             self.to_download.append("yt-dlp")
+        if not self.dep_manager.is_installed("ffmpeg"):
+            self.to_download.append("ffmpeg")
             
         self.current_download_idx = 0
         self.active_worker = None
