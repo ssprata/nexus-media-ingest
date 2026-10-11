@@ -41,13 +41,19 @@ def build_nexus():
     dist_dir = os.path.join(workspace_dir, "dist")
     build_dir = os.path.join(workspace_dir, "build")
 
+    # Pre-clean existing dist/Nexus folder if present
+    nexus_dist = os.path.join(dist_dir, "Nexus")
+    if os.path.exists(nexus_dist):
+        shutil.rmtree(nexus_dist, ignore_errors=True)
+
     print("[*] Packaging Nexus executable (privacy-safe, no personal cookies or local configs)...")
     pyinstaller_args = [
         sys.executable, "-m", "PyInstaller",
         "--name=Nexus",
         "--noconsole",
         "--clean",
-        "--onedir"
+        "--onedir",
+        "-y"
     ]
 
     # Include bin directory if populated
