@@ -2,7 +2,7 @@ import os
 import subprocess
 import uuid
 from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
-from PyQt6.QtCore import Qt, pyqtSignal, QThread, pyqtSlot, QTimer, QPropertyAnimation, QEasingCurve, QUrl
+from PyQt6.QtCore import Qt, pyqtSignal, QThread, pyqtSlot, QTimer, QPropertyAnimation, QEasingCurve, QUrl, QRectF
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QLineEdit, QPlainTextEdit, QPushButton, QListWidget,
@@ -10,11 +10,14 @@ from PyQt6.QtWidgets import (
     QFileDialog, QMessageBox, QSplitter, QScrollArea, QFrame,
     QSizePolicy, QFormLayout, QGroupBox, QDialog, QTreeWidget, QTreeWidgetItem,
     QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QSystemTrayIcon, QMenu,
-    QGraphicsOpacityEffect
+    QGraphicsOpacityEffect, QGraphicsDropShadowEffect
 )
 import json
 import requests
-from PyQt6.QtGui import QColor, QFont, QClipboard, QIcon, QPixmap, QDesktopServices
+from PyQt6.QtGui import (
+    QColor, QFont, QClipboard, QIcon, QPixmap, QDesktopServices,
+    QPainter, QBrush, QLinearGradient, QPen, QPainterPath
+)
 
 from config_manager import ConfigManager
 from dependency_manager import DependencyManager
@@ -1134,6 +1137,117 @@ class DownloadProgressWidget(QFrame):
             os.startfile(self.target_dir)
 
 
+class CyberProfileBadge(QPushButton):
+    """
+    Sleek Cyberpunk Profile Pill with neon rounded glow and an animated
+    purple-black-white color gradient moving continuously across the text on the X-axis.
+    """
+    def __init__(self, text="@ssprata", parent=None):
+        super().__init__(text, parent)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setToolTip("Developed by @ssprata — Click to view GitHub projects & other tools\nhttps://github.com/ssprata")
+        self.setFixedHeight(26)
+        self.setMinimumWidth(105)
+        self._phase = 0.0
+        self._glow_phase = 0.0
+        self._glow_dir = 1
+
+        self.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/ssprata")))
+
+        # Smooth horizontal gradient animation timer (~33 FPS)
+        self._anim_timer = QTimer(self)
+        self._anim_timer.timeout.connect(self._step_gradient)
+        self._anim_timer.start(30)
+
+    def _step_gradient(self):
+        # Shift gradient wave along X axis
+        self._phase = (self._phase + 0.015) % 1.0
+
+        # Gentle breathing neon glow
+        self._glow_phase += 0.04 * self._glow_dir
+        if self._glow_phase >= 1.0:
+            self._glow_phase = 1.0
+            self._glow_dir = -1
+        elif self._glow_phase <= 0.0:
+            self._glow_phase = 0.0
+            self._glow_dir = 1
+        
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+
+        w = float(self.width())
+        h = float(self.height())
+
+        inset = 2.0
+        pill_w = w - (inset * 2.0)
+        pill_h = h - (inset * 2.0)
+        radius = pill_h / 2.0
+
+        # 1. Outer Neon Rounding Glow (Multi-layered diffused halo)
+        glow_alpha = int(45 + 35 * self._glow_phase)
+        for i in range(3, 0, -1):
+            glow_color = QColor(168, 85, 247, int(glow_alpha / (i * 1.4)))
+            painter.setPen(QPen(glow_color, float(i * 1.5)))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRoundedRect(QRectF(inset, inset, pill_w, pill_h), radius, radius)
+
+        # 2. Pill Background & Neon Rim
+        bg_col = QColor(8, 7, 16, 245)
+        border_col = QColor(192, 132, 252, int(200 + 55 * self._glow_phase))
+        if self.isDown():
+            bg_col = QColor(25, 12, 45, 255)
+            border_col = QColor(236, 72, 153, 255)
+        elif self.underMouse():
+            bg_col = QColor(18, 12, 32, 250)
+            border_col = QColor(240, 190, 255, 255)
+
+        painter.setPen(QPen(border_col, 1.3))
+        painter.setBrush(QBrush(bg_col))
+        painter.drawRoundedRect(QRectF(inset, inset, pill_w, pill_h), radius, radius)
+
+        # 3. Text layout & moving horizontal gradient (Purple -> Black -> White -> Purple)
+        font = self.font()
+        font.setBold(True)
+        font.setPointSize(10)
+        font.setFamily("Segoe UI")
+        painter.setFont(font)
+
+        fm = painter.fontMetrics()
+        txt = self.text()
+        tw = float(fm.horizontalAdvance(txt))
+        th = float(fm.capHeight())
+        tx = (w - tw) / 2.0
+        ty = (h + th) / 2.0 - 1.0
+
+        # Moving X-axis linear gradient
+        cycle_len = tw + 45.0
+        x_start = tx - 25.0 + (self._phase * cycle_len)
+        x_end = x_start + cycle_len
+        grad = QLinearGradient(x_start, 0.0, x_end, 0.0)
+        grad.setSpread(QLinearGradient.Spread.RepeatSpread)
+
+        # Purple -> Black -> White -> Purple color stops
+        grad.setColorAt(0.00, QColor("#c084fc")) # Light Vibrant Purple
+        grad.setColorAt(0.25, QColor("#7928ca")) # Deep Violet-Purple
+        grad.setColorAt(0.48, QColor("#080511")) # OLED Black / Deep Obsidian
+        grad.setColorAt(0.72, QColor("#ffffff")) # Glowing White
+        grad.setColorAt(0.85, QColor("#e9d5ff")) # Pale Lavender White
+        grad.setColorAt(1.00, QColor("#c084fc")) # Light Vibrant Purple
+
+        path = QPainterPath()
+        path.addText(tx, ty, font, txt)
+        painter.fillPath(path, QBrush(grad))
+
+        # Delicate neon rim on text so black gradient phase remains ultra-crisp
+        painter.strokePath(path, QPen(QColor(192, 132, 252, 110), 0.6))
+        painter.end()
+
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -1203,15 +1317,15 @@ class MainWindow(QMainWindow):
         self.engine_badges_layout = QHBoxLayout()
         self.engine_badges_layout.setSpacing(6)
         TOOL_META = [
-            ("yt-dlp", "🎬 yt-dlp"),
-            ("aria2c", "⚡ aria2c"),
-            ("ffmpeg", "🎞️ ffmpeg"),
-            ("spotdl", "🎵 spotdl"),
-            ("gallery-dl", "🖼️ g-dl"),
-            ("instagram", "📸 insta")
+            ("yt-dlp", "yt-dlp"),
+            ("aria2c", "aria2c"),
+            ("ffmpeg", "ffmpeg"),
+            ("spotdl", "spotdl"),
+            ("gallery-dl", "g-dl"),
+            ("instagram", "insta")
         ]
         for t, display_name in TOOL_META:
-            badge = QPushButton(f"{display_name} 🟢")
+            badge = QPushButton(f"{display_name} ●")
             badge.setObjectName("engine_top_pill")
             badge.setProperty("status", "working")
             badge.setToolTip(f"{t}: Checking status...\nClick to inspect in Engine Center")
@@ -1224,22 +1338,18 @@ class MainWindow(QMainWindow):
         header_layout.addStretch()
 
         # Aggregate Speed / Ingest Pulse Indicator
-        self.aggregate_speed_lbl = QLabel("⚡ Idle")
+        self.aggregate_speed_lbl = QLabel("● Idle")
         self.aggregate_speed_lbl.setStyleSheet("color: #00f0ff; font-weight: bold; font-size: 12px; padding: 4px 10px; border: 1px solid #1e2030; border-radius: 6px; background-color: #141726;")
         header_layout.addWidget(self.aggregate_speed_lbl)
 
         # Cookie Manager in Header
-        self.cookie_manager_btn = QPushButton("🍪 Cookie Manager")
+        self.cookie_manager_btn = QPushButton("Cookie Manager")
         self.cookie_manager_btn.setObjectName("neon_yellow_btn")
         self.cookie_manager_btn.clicked.connect(self.on_open_cookie_manager)
         header_layout.addWidget(self.cookie_manager_btn)
 
-        # Developer GitHub link in Header
-        self.github_profile_btn = QPushButton("🐙 @ssprata")
-        self.github_profile_btn.setObjectName("neon_purple_btn")
-        self.github_profile_btn.setToolTip("Developed by @ssprata — Click to view GitHub projects & other tools\nhttps://github.com/ssprata")
-        self.github_profile_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.github_profile_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/ssprata")))
+        # Developer GitHub link in Header (Animated Cyber Profile Badge)
+        self.github_profile_btn = CyberProfileBadge("@ssprata")
         header_layout.addWidget(self.github_profile_btn)
 
         root_layout.addWidget(header_bar)
@@ -2089,16 +2199,16 @@ class MainWindow(QMainWindow):
         about_btn_row = QHBoxLayout()
         about_btn_row.setSpacing(10)
 
-        dev_gh_btn = QPushButton("🐙 Visit @ssprata on GitHub ↗")
+        dev_gh_btn = QPushButton("Visit @ssprata on GitHub ↗")
         dev_gh_btn.setObjectName("neon_purple_btn")
         dev_gh_btn.setFixedHeight(28)
         dev_gh_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/ssprata")))
         about_btn_row.addWidget(dev_gh_btn)
 
-        repo_gh_btn = QPushButton("⭐ Nexus Repository ↗")
+        repo_gh_btn = QPushButton("Nexus Repository ↗")
         repo_gh_btn.setObjectName("neon_cyan_btn")
         repo_gh_btn.setFixedHeight(28)
-        repo_gh_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/ssprata/multi-downloader-tool")))
+        repo_gh_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/ssprata/nexus-media-ingest")))
         about_btn_row.addWidget(repo_gh_btn)
 
         about_btn_row.addStretch()
@@ -2146,12 +2256,12 @@ class MainWindow(QMainWindow):
         active_count = len(self.active_workers)
         queued_count = len(self.pending_queue)
         if active_count == 0 and queued_count == 0:
-            self.aggregate_speed_lbl.setText("⚡ Idle")
+            self.aggregate_speed_lbl.setText("● Idle")
             self.aggregate_speed_lbl.setStyleSheet("color: #64748b; font-weight: 700; font-size: 12px; padding: 4px 12px; border: 1px solid #141728; border-radius: 7px; background-color: #04050a;")
             return
 
         speed_list = [s for s in self.active_speeds.values() if s and s != "-"]
-        speed_summary = f"⚡ {speed_list[0]}" if speed_list else "⚡ Ingesting"
+        speed_summary = f"● {speed_list[0]}" if speed_list else "● Ingesting"
         self.aggregate_speed_lbl.setText(f"{speed_summary} | {active_count} Active | {queued_count} Queued")
         self.aggregate_speed_lbl.setStyleSheet("color: #00f0ff; font-weight: 800; font-size: 12px; padding: 4px 12px; border: 1px solid #00f0ff; border-radius: 7px; background-color: rgba(0, 240, 255, 0.08); font-family: 'JetBrains Mono', Consolas, monospace;")
 
@@ -2804,7 +2914,7 @@ class MainWindow(QMainWindow):
         from downloader import get_cookie_status
         has_cookies, count, _ = get_cookie_status("cookies.txt")
         if has_cookies:
-            self.cookie_manager_btn.setText(f"🍪 Cookies Active ({count})")
+            self.cookie_manager_btn.setText(f"Cookies Active ({count})")
             self.cookie_manager_btn.setStyleSheet("""
                 background-color: #064e3b;
                 color: #34d399;
@@ -2814,7 +2924,7 @@ class MainWindow(QMainWindow):
                 font-weight: bold;
             """)
         else:
-            self.cookie_manager_btn.setText("🍪 Cookie Manager")
+            self.cookie_manager_btn.setText("Cookie Manager")
             self.cookie_manager_btn.setStyleSheet("""
                 background-color: #1e293b;
                 color: #fbbf24;
@@ -3192,23 +3302,16 @@ class MainWindow(QMainWindow):
         if tool_name not in self.engine_badges:
             return
         badge = self.engine_badges[tool_name]
-        TOOL_ICONS = {
-            "yt-dlp": "🎬 yt-dlp",
-            "aria2c": "⚡ aria2c",
-            "ffmpeg": "🎞️ ffmpeg",
-            "spotdl": "🎵 spotdl",
-            "gallery-dl": "🖼️ g-dl",
-            "instagram": "📸 insta"
+        TOOL_LABELS = {
+            "yt-dlp": "yt-dlp",
+            "aria2c": "aria2c",
+            "ffmpeg": "ffmpeg",
+            "spotdl": "spotdl",
+            "gallery-dl": "g-dl",
+            "instagram": "insta"
         }
-        short_label = TOOL_ICONS.get(tool_name, tool_name)
-        status_symbols = {
-            "working": "🟢",
-            "warning": "🟡",
-            "outdated": "🟣",
-            "offline": "🔴"
-        }
-        symbol = status_symbols.get(status, "⚪")
-        badge.setText(f"{short_label} {symbol}")
+        short_label = TOOL_LABELS.get(tool_name, tool_name)
+        badge.setText(f"{short_label} ●")
         badge.setProperty("status", status)
         badge.setToolTip(f"{tool_name}: {detail}\nClick to inspect in Engine Center")
         badge.style().unpolish(badge)
