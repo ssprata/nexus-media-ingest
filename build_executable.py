@@ -10,9 +10,14 @@ import sys
 import subprocess
 import shutil
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 def build_nexus():
     print("=" * 65)
-    print("🚀 NEXUS MEDIA INGEST — STANDALONE PACKAGING SUITE")
+    print("[*] NEXUS MEDIA INGEST — STANDALONE PACKAGING SUITE")
     print("=" * 65)
 
     workspace_dir = os.path.dirname(os.path.abspath(__file__))
@@ -36,31 +41,42 @@ def build_nexus():
     dist_dir = os.path.join(workspace_dir, "dist")
     build_dir = os.path.join(workspace_dir, "build")
 
-    print("[*] Packaging Nexus executable...")
+    print("[*] Packaging Nexus executable (privacy-safe, no personal cookies or local configs)...")
     pyinstaller_args = [
         sys.executable, "-m", "PyInstaller",
         "--name=Nexus",
         "--noconsole",
         "--clean",
-        "--onedir",
-        f"--add-data={bin_dir};bin",
-        f"--add-data={os.path.join(workspace_dir, 'config.json')};.",
-        f"--add-data={os.path.join(workspace_dir, 'cookies.txt')};.",
+        "--onedir"
+    ]
+
+    # Include bin directory if populated
+    if os.path.exists(bin_dir) and os.listdir(bin_dir):
+        pyinstaller_args.append(f"--add-data={bin_dir};bin")
+
+    pyinstaller_args.extend([
         "--collect-submodules=PyQt6",
         "--collect-submodules=spotdl",
         "--collect-submodules=instaloader",
         "main.py"
-    ]
+    ])
 
     print(f"[*] Executing command:\n    {' '.join(pyinstaller_args)}\n")
     ret = subprocess.call(pyinstaller_args)
 
     if ret == 0:
         exe_path = os.path.join(dist_dir, "Nexus", "Nexus.exe")
+        nexus_dir = os.path.join(dist_dir, "Nexus")
+        zip_output = os.path.join(dist_dir, "Nexus-v1.0.0-Windows-x64")
+        
+        print("\n[*] Creating GitHub Release ZIP archive...")
+        archive_path = shutil.make_archive(zip_output, "zip", dist_dir, "Nexus")
+        
         print("\n" + "=" * 65)
-        print("✅ BUILD COMPLETED SUCCESSFULLY!")
-        print(f"📦 Portable Distribution: {os.path.join(dist_dir, 'Nexus')}")
+        print("✅ BUILD & RELEASE PACKAGING COMPLETED SUCCESSFULLY!")
+        print(f"📦 Portable Folder: {nexus_dir}")
         print(f"⚡ Main Executable: {exe_path}")
+        print(f"🎁 Release ZIP:     {archive_path}")
         print("=" * 65)
     else:
         print(f"\n❌ Build failed with return code {ret}")

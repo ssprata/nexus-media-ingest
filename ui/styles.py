@@ -99,6 +99,30 @@ QFrame#card_frame:hover {
     border-color: #262c47;
 }
 
+QFrame#armed_banner {
+    background-color: #070a18;
+    border: 1px solid #142038;
+    border-left: 4px solid #00f0ff;
+    border-radius: 8px;
+}
+QFrame#armed_banner:hover {
+    border-color: #00f0ff;
+    border-left: 4px solid #00f0ff;
+    background-color: #0c1228;
+}
+
+QFrame#snapshot_card {
+    background-color: #060712;
+    border: 1px solid #1a2038;
+    border-left: 4px solid #7928ca;
+    border-radius: 8px;
+}
+QFrame#snapshot_card:hover {
+    border-color: #a855f7;
+    border-left: 4px solid #00f0ff;
+    background-color: #0a0d20;
+}
+
 /* --- Progress Cards (Queue Items) --- */
 QFrame#progress_card {
     background-color: #06070e;
@@ -241,13 +265,14 @@ QPushButton#engine_top_pill[status="offline"] {
 
 /* Interactive Engine Card */
 QFrame#engine_card {
-    background-color: #080912;
-    border: 1px solid #181d30;
+    background-color: #070812;
+    border: 1px solid #181d32;
     border-radius: 10px;
-    padding: 6px;
+    padding: 8px 10px;
 }
 QFrame#engine_card:hover {
-    border-color: #2b3352;
+    border-color: #00f0ff;
+    background-color: #0c1022;
 }
 
 /* Clipboard Toast / Banner */

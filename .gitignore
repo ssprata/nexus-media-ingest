@@ -40,3 +40,9 @@ config.json
 downloads/
 temp/
 history.json
+
+# Cookies & Private Credentials
+cookies.txt
+*.cookies
+*.nexus
+*.spec

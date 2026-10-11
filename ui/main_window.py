@@ -2,7 +2,7 @@ import os
 import subprocess
 import uuid
 from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
-from PyQt6.QtCore import Qt, pyqtSignal, QThread, pyqtSlot, QTimer, QPropertyAnimation, QEasingCurve
+from PyQt6.QtCore import Qt, pyqtSignal, QThread, pyqtSlot, QTimer, QPropertyAnimation, QEasingCurve, QUrl
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QLineEdit, QPlainTextEdit, QPushButton, QListWidget,
@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
 )
 import json
 import requests
-from PyQt6.QtGui import QColor, QFont, QClipboard, QIcon, QPixmap
+from PyQt6.QtGui import QColor, QFont, QClipboard, QIcon, QPixmap, QDesktopServices
 
 from config_manager import ConfigManager
 from dependency_manager import DependencyManager
@@ -1234,6 +1234,14 @@ class MainWindow(QMainWindow):
         self.cookie_manager_btn.clicked.connect(self.on_open_cookie_manager)
         header_layout.addWidget(self.cookie_manager_btn)
 
+        # Developer GitHub link in Header
+        self.github_profile_btn = QPushButton("🐙 @ssprata")
+        self.github_profile_btn.setObjectName("neon_purple_btn")
+        self.github_profile_btn.setToolTip("Developed by @ssprata — Click to view GitHub projects & other tools\nhttps://github.com/ssprata")
+        self.github_profile_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.github_profile_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/ssprata")))
+        header_layout.addWidget(self.github_profile_btn)
+
         root_layout.addWidget(header_bar)
 
         # ----------------- MAIN WORKSPACE SPLITTER -----------------
@@ -1265,20 +1273,20 @@ class MainWindow(QMainWindow):
         lib_root_layout.setSpacing(6)
 
         lib_header_row = QHBoxLayout()
-        lib_title = QLabel("🏠 MAIN INGEST FOLDER")
+        lib_title = QLabel("🏠 ROOT LIBRARY")
         lib_title.setStyleSheet("font-size: 11px; font-weight: 800; color: #00f0ff; letter-spacing: 0.5px;")
         lib_header_row.addWidget(lib_title)
         lib_header_row.addStretch()
 
         self.lib_change_btn = QPushButton("Change")
-        self.lib_change_btn.setFixedHeight(20)
-        self.lib_change_btn.setStyleSheet("font-size: 11px; padding: 1px 6px; background-color: #161b2e; border: 1px solid #00f0ff; color: #00f0ff; border-radius: 4px;")
+        self.lib_change_btn.setFixedHeight(22)
+        self.lib_change_btn.setStyleSheet("font-size: 11px; padding: 2px 8px; background-color: #161b2e; border: 1px solid #00f0ff; color: #00f0ff; border-radius: 4px;")
         self.lib_change_btn.clicked.connect(self.on_change_main_library_dir)
         lib_header_row.addWidget(self.lib_change_btn)
 
         self.lib_open_btn = QPushButton("Open ↗")
-        self.lib_open_btn.setFixedHeight(20)
-        self.lib_open_btn.setStyleSheet("font-size: 11px; padding: 1px 6px; background-color: #161b2e; border: 1px solid #7928ca; color: #d8b4fe; border-radius: 4px;")
+        self.lib_open_btn.setFixedHeight(22)
+        self.lib_open_btn.setStyleSheet("font-size: 11px; padding: 2px 8px; background-color: #161b2e; border: 1px solid #7928ca; color: #d8b4fe; border-radius: 4px;")
         self.lib_open_btn.clicked.connect(self.on_open_main_library_dir)
         lib_header_row.addWidget(self.lib_open_btn)
 
@@ -1342,71 +1350,59 @@ class MainWindow(QMainWindow):
         portability_btn_row.addWidget(self.import_profiles_btn)
         sidebar_layout.addLayout(portability_btn_row)
 
-        # Profile Quick Config Card
-        self.profile_details_frame = QFrame()
-        self.profile_details_frame.setObjectName("card_frame")
-        details_layout = QVBoxLayout(self.profile_details_frame)
-        details_layout.setContentsMargins(12, 12, 12, 12)
-        details_layout.setSpacing(8)
+        # Active Profile Snapshot Card (Compact Cyberpunk HUD)
+        self.active_snapshot_card = QFrame()
+        self.active_snapshot_card.setObjectName("snapshot_card")
+        snapshot_layout = QVBoxLayout(self.active_snapshot_card)
+        snapshot_layout.setContentsMargins(12, 10, 12, 10)
+        snapshot_layout.setSpacing(6)
 
-        card_title = QLabel("ACTIVE PROFILE SETTINGS")
-        card_title.setObjectName("section_title")
-        details_layout.addWidget(card_title)
+        snap_top_row = QHBoxLayout()
+        snap_title = QLabel("⚡ ARMED PROFILE")
+        snap_title.setStyleSheet("font-size: 10px; font-weight: 800; color: #ff007f; letter-spacing: 1px;")
+        snap_top_row.addWidget(snap_title)
+        snap_top_row.addStretch()
 
-        form_layout = QFormLayout()
-        form_layout.setSpacing(8)
+        self.snapshot_tool_badge = QLabel("yt-dlp")
+        self.snapshot_tool_badge.setObjectName("hud_metric_pill")
+        self.snapshot_tool_badge.setStyleSheet("font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 800; background-color: rgba(0, 240, 255, 0.12); color: #00f0ff; border: 1px solid rgba(0, 240, 255, 0.4);")
+        snap_top_row.addWidget(self.snapshot_tool_badge)
+        snapshot_layout.addLayout(snap_top_row)
 
-        self.prof_name_input = QLineEdit()
-        self.prof_name_input.textChanged.connect(self.on_profile_form_field_changed)
-        form_layout.addRow("Name:", self.prof_name_input)
+        self.snapshot_name_lbl = QLabel("Default Profile")
+        self.snapshot_name_lbl.setStyleSheet("font-size: 13px; font-weight: 800; color: #ffffff;")
+        snapshot_layout.addWidget(self.snapshot_name_lbl)
 
-        self.prof_folder_input = QComboBox()
-        self.prof_folder_input.setEditable(True)
-        self.prof_folder_input.currentTextChanged.connect(self.on_profile_form_field_changed)
-        form_layout.addRow("Folder:", self.prof_folder_input)
+        self.snapshot_path_lbl = QLabel()
+        self.snapshot_path_lbl.setStyleSheet("font-size: 10px; color: #94a3b8; font-family: 'JetBrains Mono', Consolas, monospace;")
+        self.snapshot_path_lbl.setWordWrap(True)
+        snapshot_layout.addWidget(self.snapshot_path_lbl)
 
-        self.prof_tool_combo = QComboBox()
-        self.prof_tool_combo.addItems(["yt-dlp", "aria2c", "gallery-dl", "spotdl", "instagram"])
-        self.prof_tool_combo.currentTextChanged.connect(self.on_tool_combo_changed)
-        form_layout.addRow("Engine:", self.prof_tool_combo)
+        snap_btn_row = QHBoxLayout()
+        snap_btn_row.setSpacing(6)
+        self.snapshot_open_btn = QPushButton("↗ Folder")
+        self.snapshot_open_btn.setFixedHeight(24)
+        self.snapshot_open_btn.setStyleSheet("font-size: 11px; padding: 2px 8px; background-color: #121524; border: 1px solid #7928ca; color: #d8b4fe; border-radius: 4px;")
+        self.snapshot_open_btn.setToolTip("Open this profile's destination directory in File Explorer")
+        self.snapshot_open_btn.clicked.connect(self.on_open_current_export_dir)
+        snap_btn_row.addWidget(self.snapshot_open_btn)
 
-        # Auto-mirror checkbox
-        self.prof_auto_path_cb = QCheckBox("Auto-mirror folder hierarchy on disk")
-        self.prof_auto_path_cb.setStyleSheet("color: #00f0ff; font-weight: bold; font-size: 11px;")
-        self.prof_auto_path_cb.toggled.connect(self.on_auto_path_toggled)
-        form_layout.addRow("", self.prof_auto_path_cb)
+        self.snapshot_studio_btn = QPushButton("⚙️ Studio ➔")
+        self.snapshot_studio_btn.setFixedHeight(24)
+        self.snapshot_studio_btn.setStyleSheet("font-size: 11px; padding: 2px 8px; background-color: #121524; border: 1px solid #00f0ff; color: #00f0ff; border-radius: 4px;")
+        self.snapshot_studio_btn.setToolTip("Open Profile Studio to customize profile name, engine, and download formats")
+        self.snapshot_studio_btn.clicked.connect(lambda: self.main_hub_tabs.setCurrentIndex(1))
+        snap_btn_row.addWidget(self.snapshot_studio_btn)
 
-        # Directory Selector
-        dir_layout = QHBoxLayout()
-        self.prof_dir_input = QLineEdit()
-        self.prof_dir_btn = QPushButton("Browse")
-        self.prof_dir_btn.setFixedWidth(60)
-        self.prof_dir_btn.clicked.connect(self.on_browse_directory)
-
-        self.open_export_dir_btn = QPushButton("Open ↗")
-        self.open_export_dir_btn.setFixedWidth(60)
-        self.open_export_dir_btn.clicked.connect(self.on_open_current_export_dir)
-
-        dir_layout.addWidget(self.prof_dir_input)
-        dir_layout.addWidget(self.prof_dir_btn)
-        dir_layout.addWidget(self.open_export_dir_btn)
-        form_layout.addRow("Export:", dir_layout)
-
-        details_layout.addLayout(form_layout)
-
-        self.save_profile_btn = QPushButton("💾 Save Profile")
-        self.save_profile_btn.setObjectName("neon_cyan_btn")
-        self.save_profile_btn.clicked.connect(self.on_save_profile_settings)
-        details_layout.addWidget(self.save_profile_btn)
-
-        sidebar_layout.addWidget(self.profile_details_frame)
+        snapshot_layout.addLayout(snap_btn_row)
+        sidebar_layout.addWidget(self.active_snapshot_card)
         main_splitter.addWidget(sidebar)
 
         # ----------------- RIGHT WORKSPACE AREA -----------------
         workspace = QWidget()
         workspace_layout = QVBoxLayout(workspace)
-        workspace_layout.setContentsMargins(14, 14, 14, 14)
-        workspace_layout.setSpacing(12)
+        workspace_layout.setContentsMargins(12, 12, 12, 12)
+        workspace_layout.setSpacing(10)
 
         # --- Clipboard Ingest Banner (Hidden until media link detected) ---
         self.clipboard_banner = QFrame()
@@ -1434,7 +1430,39 @@ class MainWindow(QMainWindow):
 
         workspace_layout.addWidget(self.clipboard_banner)
 
-        # --- Top Command Center: URL Batch Input ---
+        # --- Primary Hub Tabs ---
+        self.main_hub_tabs = QTabWidget()
+        self.main_hub_tabs.setObjectName("activity_tab_widget")
+        self.main_hub_tabs.currentChanged.connect(self.on_tab_changed_animate)
+
+        # =========================================================
+        # TAB 0: ⚡ Ingest & Queue (Unified Command Center)
+        # =========================================================
+        ingest_queue_tab = QWidget()
+        ingest_queue_layout = QVBoxLayout(ingest_queue_tab)
+        ingest_queue_layout.setContentsMargins(10, 10, 10, 10)
+        ingest_queue_layout.setSpacing(10)
+
+        # 1. Armed Profile Status Banner
+        self.armed_banner = QFrame()
+        self.armed_banner.setObjectName("armed_banner")
+        armed_banner_layout = QHBoxLayout(self.armed_banner)
+        armed_banner_layout.setContentsMargins(14, 8, 14, 8)
+        armed_banner_layout.setSpacing(10)
+
+        self.armed_profile_lbl = QLabel("🎯 ARMED PROFILE: Initializing...")
+        self.armed_profile_lbl.setStyleSheet("color: #00f0ff; font-size: 12px;")
+        armed_banner_layout.addWidget(self.armed_profile_lbl, 1)
+
+        self.armed_studio_btn = QPushButton("⚙️ Configure Profile")
+        self.armed_studio_btn.setFixedHeight(26)
+        self.armed_studio_btn.setStyleSheet("font-size: 11px; padding: 2px 12px; background-color: #141728; border: 1px solid #00f0ff; color: #00f0ff; border-radius: 5px; font-weight: bold;")
+        self.armed_studio_btn.clicked.connect(lambda: self.main_hub_tabs.setCurrentIndex(1))
+        armed_banner_layout.addWidget(self.armed_studio_btn)
+
+        ingest_queue_layout.addWidget(self.armed_banner)
+
+        # 2. Batch URL Input Card
         input_card = QFrame()
         input_card.setObjectName("card_frame")
         input_card_layout = QVBoxLayout(input_card)
@@ -1445,7 +1473,6 @@ class MainWindow(QMainWindow):
         url_lbl = QLabel("📥 BATCH URL INPUT")
         url_lbl.setObjectName("header_label")
         url_header_row.addWidget(url_lbl)
-
         url_header_row.addStretch()
 
         paste_btn = QPushButton("📋 Paste Clipboard")
@@ -1463,26 +1490,22 @@ class MainWindow(QMainWindow):
         self.urls_input = QPlainTextEdit()
         self.urls_input.setPlaceholderText("Paste one or more URLs here (YouTube, Spotify, Direct files, Instagram, Galleries)...")
         self.urls_input.setMinimumHeight(65)
-        self.urls_input.setMaximumHeight(110)
+        self.urls_input.setMaximumHeight(105)
         input_card_layout.addWidget(self.urls_input)
 
-        # Start Download Button
         self.download_btn = QPushButton("⚡ ENGAGE DOWNLOAD BATCH")
         self.download_btn.setObjectName("download_btn")
         self.download_btn.clicked.connect(self.start_download_batch)
         input_card_layout.addWidget(self.download_btn)
 
-        workspace_layout.addWidget(input_card)
+        ingest_queue_layout.addWidget(input_card)
 
-        # --- Main Tabbed Hub: Queue, Engine Settings, Logs & Manager ---
-        self.main_hub_tabs = QTabWidget()
-        self.main_hub_tabs.setObjectName("activity_tab_widget")
-
-        # TAB 1: 📥 Active Queue
-        queue_tab = QWidget()
-        queue_tab_layout = QVBoxLayout(queue_tab)
-        queue_tab_layout.setContentsMargins(10, 10, 10, 10)
-        queue_tab_layout.setSpacing(8)
+        # 3. Active Queue Stream & Controls
+        queue_card = QFrame()
+        queue_card.setObjectName("card_frame")
+        queue_card_layout = QVBoxLayout(queue_card)
+        queue_card_layout.setContentsMargins(12, 10, 12, 10)
+        queue_card_layout.setSpacing(8)
 
         queue_control_row = QHBoxLayout()
         self.queue_count_lbl = QLabel("Queue: 0 active | 0 queued")
@@ -1490,7 +1513,6 @@ class MainWindow(QMainWindow):
         queue_control_row.addWidget(self.queue_count_lbl)
 
         queue_control_row.addSpacing(16)
-
         conc_lbl = QLabel("Max Concurrent:")
         conc_lbl.setStyleSheet("color: #94a3b8; font-size: 12px;")
         queue_control_row.addWidget(conc_lbl)
@@ -1513,124 +1535,105 @@ class MainWindow(QMainWindow):
         self.cancel_all_btn.clicked.connect(self.cancel_all_downloads)
         queue_control_row.addWidget(self.cancel_all_btn)
 
-        queue_tab_layout.addLayout(queue_control_row)
+        queue_card_layout.addLayout(queue_control_row)
 
         self.queue_scroll = QScrollArea()
         self.queue_scroll.setWidgetResizable(True)
+        self.queue_scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
         self.queue_scroll_content = QWidget()
         self.queue_list_layout = QVBoxLayout(self.queue_scroll_content)
-        self.queue_list_layout.setContentsMargins(4, 4, 4, 4)
+        self.queue_list_layout.setContentsMargins(2, 2, 2, 2)
         self.queue_list_layout.setSpacing(8)
         self.queue_list_layout.addStretch()
         self.queue_scroll.setWidget(self.queue_scroll_content)
-        queue_tab_layout.addWidget(self.queue_scroll)
+        queue_card_layout.addWidget(self.queue_scroll, 1)
 
-        self.main_hub_tabs.addTab(queue_tab, "📥 Active Queue (0)")
+        ingest_queue_layout.addWidget(queue_card, 1)
+        self.main_hub_tabs.addTab(ingest_queue_tab, "⚡ Ingest & Queue (0)")
 
-        # TAB 2: 🛠️ Engines & Performance (Unified Engine Diagnostic & Settings Hub)
-        engines_perf_tab = QWidget()
-        engines_perf_layout = QVBoxLayout(engines_perf_tab)
-        engines_perf_layout.setContentsMargins(12, 10, 12, 10)
-        engines_perf_layout.setSpacing(10)
+        # =========================================================
+        # TAB 1: ⚙️ Profile Studio (Profile Identity & Engine Tuning)
+        # =========================================================
+        profile_studio_tab = QWidget()
+        studio_layout = QVBoxLayout(profile_studio_tab)
+        studio_layout.setContentsMargins(12, 12, 12, 12)
+        studio_layout.setSpacing(12)
 
-        # Header Control Row
-        engines_header_row = QHBoxLayout()
-        engines_title = QLabel("ENGINE CENTER & PERFORMANCE")
-        engines_title.setStyleSheet("color: #00f0ff; font-weight: 800; font-size: 13px; letter-spacing: 0.8px;")
-        engines_header_row.addWidget(engines_title)
+        # Top Card: Profile Identity & Target Destination
+        prof_id_card = QFrame()
+        prof_id_card.setObjectName("card_frame")
+        prof_id_layout = QVBoxLayout(prof_id_card)
+        prof_id_layout.setContentsMargins(14, 12, 14, 12)
+        prof_id_layout.setSpacing(10)
 
-        self.engine_health_hud = QLabel("🟢 6/6 Operational")
-        self.engine_health_hud.setObjectName("hud_metric_pill")
-        engines_header_row.addWidget(self.engine_health_hud)
+        prof_id_title = QLabel("⚙️ ACTIVE PROFILE IDENTITY & TARGET FOLDER")
+        prof_id_title.setObjectName("section_title")
+        prof_id_layout.addWidget(prof_id_title)
 
-        engines_header_row.addStretch()
+        prof_grid = QGridLayout()
+        prof_grid.setSpacing(10)
 
-        self.run_all_diag_btn = QPushButton("🧪 Run All Diagnostics")
-        self.run_all_diag_btn.setObjectName("neon_cyan_btn")
-        self.run_all_diag_btn.clicked.connect(self.run_all_diagnostics)
-        engines_header_row.addWidget(self.run_all_diag_btn)
+        prof_grid.addWidget(QLabel("Profile Name:"), 0, 0)
+        self.prof_name_input = QLineEdit()
+        self.prof_name_input.setPlaceholderText("Profile Name...")
+        self.prof_name_input.textChanged.connect(self.on_profile_form_field_changed)
+        prof_grid.addWidget(self.prof_name_input, 0, 1)
 
-        self.update_all_tab_btn = QPushButton("⚡ Update All Engines")
-        self.update_all_tab_btn.setObjectName("neon_purple_btn")
-        self.update_all_tab_btn.clicked.connect(self.update_all_engines)
-        self.quick_update_btn = self.update_all_tab_btn  # Reference compatibility
-        engines_header_row.addWidget(self.update_all_tab_btn)
+        prof_grid.addWidget(QLabel("Folder Group:"), 0, 2)
+        self.prof_folder_input = QComboBox()
+        self.prof_folder_input.setEditable(True)
+        self.prof_folder_input.currentTextChanged.connect(self.on_profile_form_field_changed)
+        prof_grid.addWidget(self.prof_folder_input, 0, 3)
 
-        engines_perf_layout.addLayout(engines_header_row)
+        prof_grid.addWidget(QLabel("Ingest Engine:"), 0, 4)
+        self.prof_tool_combo = QComboBox()
+        self.prof_tool_combo.addItems(["yt-dlp", "aria2c", "gallery-dl", "spotdl", "instagram"])
+        self.prof_tool_combo.currentTextChanged.connect(self.on_tool_combo_changed)
+        prof_grid.addWidget(self.prof_tool_combo, 0, 5)
 
-        # Download & Diagnostic Progress Bar
-        self.tool_progress_lbl = QLabel("")
-        self.tool_progress_lbl.setStyleSheet("color: #00f0ff; font-weight: bold;")
-        self.tool_progress_bar = QProgressBar()
-        self.tool_progress_bar.setVisible(False)
-        engines_perf_layout.addWidget(self.tool_progress_lbl)
-        engines_perf_layout.addWidget(self.tool_progress_bar)
+        self.prof_auto_path_cb = QCheckBox("Auto-mirror folder hierarchy on disk (<Library>/<Folder>/<Profile>)")
+        self.prof_auto_path_cb.setStyleSheet("color: #00f0ff; font-weight: bold; font-size: 11px;")
+        self.prof_auto_path_cb.toggled.connect(self.on_auto_path_toggled)
+        prof_grid.addWidget(self.prof_auto_path_cb, 1, 0, 1, 6)
 
-        # Interactive Engine Cards Grid (2 rows x 3 columns)
-        engines_grid = QGridLayout()
-        engines_grid.setSpacing(8)
-        self.engine_widgets = {}
-        tools_list = [
-            ("yt-dlp", "🎬 yt-dlp", "YouTube & Web Video Ingest"),
-            ("aria2c", "⚡ aria2c", "Multi-thread Direct Ingest"),
-            ("ffmpeg", "🎞️ ffmpeg", "Media Transcoder & Audio Engine"),
-            ("spotdl", "🎵 spotdl", "Spotify Music Ingest"),
-            ("gallery-dl", "🖼️ gallery-dl", "Image Gallery Ingest"),
-            ("instagram", "📸 instagram", "Instagram Media (Instaloader)")
-        ]
+        prof_grid.addWidget(QLabel("Export Folder:"), 2, 0)
+        dir_h_box = QHBoxLayout()
+        dir_h_box.setSpacing(8)
+        self.prof_dir_input = QLineEdit()
+        dir_h_box.addWidget(self.prof_dir_input, 1)
 
-        for idx, (tool, display_name, desc) in enumerate(tools_list):
-            card = QFrame()
-            card.setObjectName("engine_card")
-            card_l = QVBoxLayout(card)
-            card_l.setContentsMargins(10, 8, 10, 8)
-            card_l.setSpacing(6)
+        self.prof_dir_btn = QPushButton("📂 Browse...")
+        self.prof_dir_btn.setMinimumWidth(85)
+        self.prof_dir_btn.clicked.connect(self.on_browse_directory)
+        dir_h_box.addWidget(self.prof_dir_btn)
 
-            c_top = QHBoxLayout()
-            t_lbl = QLabel(f"<b>{display_name}</b>")
-            t_lbl.setStyleSheet("font-size: 13px; color: #ffffff;")
-            c_top.addWidget(t_lbl)
-            c_top.addStretch()
-            status_badge = QLabel("🟢 Ready")
-            status_badge.setObjectName("badge_working")
-            c_top.addWidget(status_badge)
-            card_l.addLayout(c_top)
+        self.open_export_dir_btn = QPushButton("↗ Open")
+        self.open_export_dir_btn.setMinimumWidth(80)
+        self.open_export_dir_btn.clicked.connect(self.on_open_current_export_dir)
+        dir_h_box.addWidget(self.open_export_dir_btn)
 
-            d_lbl = QLabel(desc)
-            d_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
-            card_l.addWidget(d_lbl)
+        prof_grid.addLayout(dir_h_box, 2, 1, 1, 5)
 
-            c_bot = QHBoxLayout()
-            v_lbl = QLabel("Checking...")
-            v_lbl.setStyleSheet("color: #00f0ff; font-weight: bold; font-size: 11px;")
-            c_bot.addWidget(v_lbl, 1)
+        prof_id_layout.addLayout(prof_grid)
 
-            test_btn = QPushButton("🧪 Quick Test")
-            test_btn.setObjectName("neon_cyan_btn")
-            test_btn.setFixedHeight(24)
-            test_btn.clicked.connect(lambda checked, t=tool: self.quick_test_engine(t))
-            c_bot.addWidget(test_btn)
+        self.save_profile_btn = QPushButton("💾 Save Profile Settings")
+        self.save_profile_btn.setObjectName("neon_cyan_btn")
+        self.save_profile_btn.setFixedHeight(30)
+        self.save_profile_btn.clicked.connect(self.on_save_profile_settings)
+        prof_id_layout.addWidget(self.save_profile_btn)
 
-            update_btn = QPushButton("Update")
-            update_btn.setObjectName("neon_purple_btn")
-            update_btn.setFixedHeight(24)
-            update_btn.clicked.connect(lambda checked, t=tool: self.download_binary(t, is_update=self.dep_manager.is_installed(t)))
-            c_bot.addWidget(update_btn)
+        studio_layout.addWidget(prof_id_card)
 
-            card_l.addLayout(c_bot)
+        # Bottom Card: Engine Tuning Tabs for the active profile
+        prof_engine_card = QFrame()
+        prof_engine_card.setObjectName("card_frame")
+        prof_engine_layout = QVBoxLayout(prof_engine_card)
+        prof_engine_layout.setContentsMargins(14, 12, 14, 12)
+        prof_engine_layout.setSpacing(10)
 
-            self.engine_widgets[tool] = {
-                "version_lbl": v_lbl,
-                "status_badge": status_badge,
-                "test_btn": test_btn,
-                "btn": update_btn,
-                "card": card
-            }
-            row = idx // 3
-            col = idx % 3
-            engines_grid.addWidget(card, row, col)
-
-        engines_perf_layout.addLayout(engines_grid)
+        prof_engine_title = QLabel("🛠️ ENGINE-SPECIFIC TUNING & FORMAT OPTIONS")
+        prof_engine_title.setObjectName("section_title")
+        prof_engine_layout.addWidget(prof_engine_title)
 
         self.config_tabs = QTabWidget()
 
@@ -1764,17 +1767,17 @@ class MainWindow(QMainWindow):
         spotdl_layout = QGridLayout(self.spotdl_tab)
         spotdl_layout.setContentsMargins(14, 12, 14, 12)
         spotdl_layout.setSpacing(10)
-        
+
         spotdl_layout.addWidget(QLabel("Audio Format:"), 0, 0)
         self.spotdl_audio_fmt = QComboBox()
         self.spotdl_audio_fmt.addItems(["mp3", "m4a", "flac", "opus", "ogg", "wav"])
         spotdl_layout.addWidget(self.spotdl_audio_fmt, 0, 1)
-        
+
         spotdl_layout.addWidget(QLabel("Bitrate / Audio Quality:"), 0, 2)
         self.spotdl_audio_q = QComboBox()
         self.spotdl_audio_q.addItems(["auto", "320k", "256k", "192k", "160k", "128k", "disable"])
         spotdl_layout.addWidget(self.spotdl_audio_q, 0, 3)
-        
+
         spotdl_layout.addWidget(QLabel("Custom Flags:"), 1, 0)
         self.spotdl_flags_input = QLineEdit()
         self.spotdl_flags_input.setPlaceholderText("--user-auth --cookie-file cookies.txt")
@@ -1786,28 +1789,28 @@ class MainWindow(QMainWindow):
         instagram_layout = QGridLayout(self.instagram_tab)
         instagram_layout.setContentsMargins(14, 12, 14, 12)
         instagram_layout.setSpacing(10)
-        
+
         self.instagram_pics_cb = QCheckBox("Download Pictures")
         self.instagram_pics_cb.setChecked(True)
         instagram_layout.addWidget(self.instagram_pics_cb, 0, 0)
-        
+
         self.instagram_vids_cb = QCheckBox("Download Videos (Reels/Posts)")
         self.instagram_vids_cb.setChecked(True)
         instagram_layout.addWidget(self.instagram_vids_cb, 0, 1)
-        
+
         self.instagram_meta_cb = QCheckBox("Download Metadata & Captions")
         self.instagram_meta_cb.setChecked(False)
         instagram_layout.addWidget(self.instagram_meta_cb, 0, 2)
-        
+
         self.instagram_comments_cb = QCheckBox("Download Comments")
         self.instagram_comments_cb.setChecked(False)
         instagram_layout.addWidget(self.instagram_comments_cb, 0, 3)
-        
+
         instagram_layout.addWidget(QLabel("Output Format:"), 1, 0)
         self.instagram_format_combo = QComboBox()
         self.instagram_format_combo.addItems(["Video (mp4)", "Audio Only (m4a)", "Audio Only (mp3)"])
         instagram_layout.addWidget(self.instagram_format_combo, 1, 1, 1, 3)
-        
+
         instagram_layout.addWidget(QLabel("Custom Flags:"), 2, 0)
         self.instagram_flags_input = QLineEdit()
         self.instagram_flags_input.setPlaceholderText("--login=USERNAME --password=PASSWORD")
@@ -1826,84 +1829,136 @@ class MainWindow(QMainWindow):
         gallery_layout.addWidget(self.gallerydl_flags_input, 0, 1, 1, 3)
         self.config_tabs.addTab(self.gallerydl_tab, "🎨 gallery-dl Settings")
 
-        # Sub-tab 6: App Tuning & Automation
-        self.tuning_tab = QWidget()
-        tuning_layout = QVBoxLayout(self.tuning_tab)
-        tuning_layout.setContentsMargins(14, 12, 14, 12)
-        tuning_layout.setSpacing(10)
+        prof_engine_layout.addWidget(self.config_tabs, 1)
+        studio_layout.addWidget(prof_engine_card, 1)
+        self.main_hub_tabs.addTab(profile_studio_tab, "⚙️ Profile Studio")
 
-        # Main Library Ingest Root Frame in Tuning Tab
-        lib_tuning_card = QFrame()
-        lib_tuning_card.setObjectName("card_frame")
-        lib_t_layout = QVBoxLayout(lib_tuning_card)
-        lib_t_layout.setContentsMargins(14, 12, 14, 12)
-        lib_t_layout.setSpacing(8)
+        # =========================================================
+        # TAB 2: 🛠️ Engine Center (Diagnostics, Health & Binaries)
+        # =========================================================
+        engine_center_tab = QWidget()
+        engine_center_layout = QVBoxLayout(engine_center_tab)
+        engine_center_layout.setContentsMargins(14, 12, 14, 12)
+        engine_center_layout.setSpacing(12)
 
-        lib_t_title = QLabel("🏠 MAIN INGEST LIBRARY ROOT")
-        lib_t_title.setObjectName("section_title")
-        lib_t_layout.addWidget(lib_t_title)
+        # Header Control Row
+        engines_header_row = QHBoxLayout()
+        engines_title = QLabel("ENGINE CENTER & PERFORMANCE")
+        engines_title.setStyleSheet("color: #00f0ff; font-weight: 800; font-size: 13px; letter-spacing: 0.8px;")
+        engines_header_row.addWidget(engines_title)
 
-        lib_t_desc = QLabel("Central root directory where auto-managed category and profile sub-folders are created.")
-        lib_t_desc.setStyleSheet("color: #94a3b8; font-size: 12px;")
-        lib_t_layout.addWidget(lib_t_desc)
+        self.engine_health_hud = QLabel("🟢 6/6 Operational")
+        self.engine_health_hud.setObjectName("hud_metric_pill")
+        engines_header_row.addWidget(self.engine_health_hud)
 
-        lib_t_row = QHBoxLayout()
-        self.tuning_lib_dir_input = QLineEdit()
-        self.tuning_lib_dir_input.setReadOnly(True)
-        self.tuning_lib_dir_input.setText(self.config_manager.get_main_library_dir())
-        self.tuning_lib_browse_btn = QPushButton("Browse")
-        self.tuning_lib_browse_btn.setFixedWidth(75)
-        self.tuning_lib_browse_btn.clicked.connect(self.on_change_main_library_dir)
-        lib_t_row.addWidget(self.tuning_lib_dir_input)
-        lib_t_row.addWidget(self.tuning_lib_browse_btn)
-        lib_t_layout.addLayout(lib_t_row)
-        tuning_layout.addWidget(lib_tuning_card)
+        engines_header_row.addStretch()
 
-        tuning_card = QFrame()
-        tuning_card.setObjectName("card_frame")
-        t_card_layout = QVBoxLayout(tuning_card)
-        t_card_layout.setContentsMargins(14, 12, 14, 12)
-        t_card_layout.setSpacing(10)
+        self.run_all_diag_btn = QPushButton("🧪 Run All Diagnostics")
+        self.run_all_diag_btn.setObjectName("neon_cyan_btn")
+        self.run_all_diag_btn.clicked.connect(self.run_all_diagnostics)
+        engines_header_row.addWidget(self.run_all_diag_btn)
 
-        self.enable_animations_cb = QCheckBox("✨ UI Micro-Animations (Smooth progress bar interpolation, card fade-ins, glow transitions)")
-        self.enable_animations_cb.setChecked(self.config_manager.get_enable_animations())
-        self.enable_animations_cb.toggled.connect(self.on_animations_toggled)
-        t_card_layout.addWidget(self.enable_animations_cb)
+        self.update_all_tab_btn = QPushButton("⚡ Update All Engines")
+        self.update_all_tab_btn.setObjectName("neon_purple_btn")
+        self.update_all_tab_btn.clicked.connect(self.update_all_engines)
+        self.quick_update_btn = self.update_all_tab_btn  # Reference compatibility
+        engines_header_row.addWidget(self.update_all_tab_btn)
 
-        self.clipboard_sniffer_cb = QCheckBox("📋 Clipboard Auto-Sniffer (Detect media links on clipboard & offer 1-click ingest banner)")
-        self.clipboard_sniffer_cb.setChecked(self.config_manager.get_clipboard_sniffer())
-        self.clipboard_sniffer_cb.toggled.connect(self.on_clipboard_sniffer_toggled)
-        t_card_layout.addWidget(self.clipboard_sniffer_cb)
+        engine_center_layout.addLayout(engines_header_row)
 
-        speed_row = QHBoxLayout()
-        speed_lbl = QLabel("🌐 Global Bandwidth Limiter:")
-        speed_lbl.setStyleSheet("color: #e2e8f0; font-size: 12px;")
-        speed_row.addWidget(speed_lbl)
-        self.global_speed_combo = QComboBox()
-        self.global_speed_combo.addItems([
-            "0 (Unlimited / Max Speed)",
-            "2M (2 MB/s)",
-            "5M (5 MB/s)",
-            "10M (10 MB/s)",
-            "25M (25 MB/s)"
-        ])
-        curr_spd = self.config_manager.get_global_speed_limit()
-        for i in range(self.global_speed_combo.count()):
-            if self.global_speed_combo.itemText(i).startswith(curr_spd):
-                self.global_speed_combo.setCurrentIndex(i)
-                break
-        self.global_speed_combo.currentTextChanged.connect(self.on_global_speed_changed)
-        speed_row.addWidget(self.global_speed_combo, 1)
-        t_card_layout.addLayout(speed_row)
+        # Download & Diagnostic Progress Bar
+        self.tool_progress_lbl = QLabel("")
+        self.tool_progress_lbl.setStyleSheet("color: #00f0ff; font-weight: bold;")
+        self.tool_progress_bar = QProgressBar()
+        self.tool_progress_bar.setVisible(False)
+        engine_center_layout.addWidget(self.tool_progress_lbl)
+        engine_center_layout.addWidget(self.tool_progress_bar)
 
-        tuning_layout.addWidget(tuning_card)
-        tuning_layout.addStretch()
-        self.config_tabs.addTab(self.tuning_tab, "✨ App Tuning & Automation")
+        # Interactive Engine Cards Grid (2 rows x 3 columns)
+        engines_grid = QGridLayout()
+        engines_grid.setSpacing(10)
+        self.engine_widgets = {}
+        tools_list = [
+            ("yt-dlp", "🎬 yt-dlp", "YouTube & Web Video Ingest"),
+            ("aria2c", "⚡ aria2c", "Multi-thread Direct Ingest"),
+            ("ffmpeg", "🎞️ ffmpeg", "Media Transcoder & Audio Engine"),
+            ("spotdl", "🎵 spotdl", "Spotify Music Ingest"),
+            ("gallery-dl", "🖼️ gallery-dl", "Image Gallery Ingest"),
+            ("instagram", "📸 instagram", "Instagram Media (Instaloader)")
+        ]
 
-        engines_perf_layout.addWidget(self.config_tabs, 1)
-        self.main_hub_tabs.addTab(engines_perf_tab, "🛠️ Engines & Performance")
+        for idx, (tool, display_name, desc) in enumerate(tools_list):
+            card = QFrame()
+            card.setObjectName("engine_card")
+            card_l = QVBoxLayout(card)
+            card_l.setContentsMargins(12, 10, 12, 10)
+            card_l.setSpacing(6)
 
-        # TAB 3: 📜 Console Logs
+            c_top = QHBoxLayout()
+            t_lbl = QLabel(f"<b>{display_name}</b>")
+            t_lbl.setStyleSheet("font-size: 13px; color: #ffffff;")
+            c_top.addWidget(t_lbl)
+            c_top.addStretch()
+            status_badge = QLabel("🟢 Ready")
+            status_badge.setObjectName("badge_working")
+            c_top.addWidget(status_badge)
+            card_l.addLayout(c_top)
+
+            d_lbl = QLabel(desc)
+            d_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
+            card_l.addWidget(d_lbl)
+
+            c_ver = QHBoxLayout()
+            c_ver.setSpacing(6)
+            v_title = QLabel("Version:")
+            v_title.setStyleSheet("color: #64748b; font-size: 11px;")
+            c_ver.addWidget(v_title)
+            v_lbl = QLabel("Checking...")
+            v_lbl.setStyleSheet("color: #00f0ff; font-weight: bold; font-size: 11px; font-family: 'JetBrains Mono', Consolas, monospace;")
+            c_ver.addWidget(v_lbl, 1)
+            card_l.addLayout(c_ver)
+
+            c_bot = QHBoxLayout()
+            c_bot.setSpacing(8)
+
+            test_btn = QPushButton("🧪 Quick Test")
+            test_btn.setObjectName("neon_cyan_btn")
+            test_btn.setFixedHeight(26)
+            test_btn.clicked.connect(lambda checked, t=tool: self.quick_test_engine(t))
+            c_bot.addWidget(test_btn, 1)
+
+            update_btn = QPushButton("⚡ Update")
+            update_btn.setObjectName("neon_purple_btn")
+            update_btn.setFixedHeight(26)
+            update_btn.clicked.connect(lambda checked, t=tool: self.download_binary(t, is_update=self.dep_manager.is_installed(t)))
+            c_bot.addWidget(update_btn, 1)
+
+            card_l.addLayout(c_bot)
+
+            self.engine_widgets[tool] = {
+                "version_lbl": v_lbl,
+                "status_badge": status_badge,
+                "test_btn": test_btn,
+                "btn": update_btn,
+                "card": card
+            }
+            row = idx // 3
+            col = idx % 3
+            engines_grid.addWidget(card, row, col)
+
+        engine_center_layout.addLayout(engines_grid)
+        engine_center_layout.addStretch()
+        self.main_hub_tabs.addTab(engine_center_tab, "🛠️ Engine Center")
+
+        # =========================================================
+        # TAB 3: 📜 Ingest History
+        # =========================================================
+        self.history_tab = self.setup_history_tab()
+        self.main_hub_tabs.addTab(self.history_tab, "📜 Ingest History")
+
+        # =========================================================
+        # TAB 4: 📜 Console Logs
+        # =========================================================
         logs_tab = QWidget()
         logs_tab_layout = QVBoxLayout(logs_tab)
         logs_tab_layout.setContentsMargins(10, 10, 10, 10)
@@ -1938,17 +1993,142 @@ class MainWindow(QMainWindow):
 
         self.main_hub_tabs.addTab(logs_tab, "📜 Console Logs")
 
-        # TAB 5: 📜 Ingest History
-        self.history_tab = self.setup_history_tab()
-        self.main_hub_tabs.addTab(self.history_tab, "📜 Ingest History")
+        # =========================================================
+        # TAB 5: ✨ App Tuning & Automation
+        # =========================================================
+        self.tuning_tab = QWidget()
+        tuning_layout = QVBoxLayout(self.tuning_tab)
+        tuning_layout.setContentsMargins(14, 12, 14, 12)
+        tuning_layout.setSpacing(12)
+
+        # Main Library Ingest Root Frame in Tuning Tab
+        lib_tuning_card = QFrame()
+        lib_tuning_card.setObjectName("card_frame")
+        lib_t_layout = QVBoxLayout(lib_tuning_card)
+        lib_t_layout.setContentsMargins(14, 12, 14, 12)
+        lib_t_layout.setSpacing(8)
+
+        lib_t_title = QLabel("🏠 MAIN INGEST LIBRARY ROOT")
+        lib_t_title.setObjectName("section_title")
+        lib_t_layout.addWidget(lib_t_title)
+
+        lib_t_desc = QLabel("Central root directory where auto-managed category and profile sub-folders are created.")
+        lib_t_desc.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        lib_t_layout.addWidget(lib_t_desc)
+
+        lib_t_row = QHBoxLayout()
+        self.tuning_lib_dir_input = QLineEdit()
+        self.tuning_lib_dir_input.setReadOnly(True)
+        self.tuning_lib_dir_input.setText(self.config_manager.get_main_library_dir())
+        self.tuning_lib_browse_btn = QPushButton("📂 Browse...")
+        self.tuning_lib_browse_btn.setMinimumWidth(85)
+        self.tuning_lib_browse_btn.clicked.connect(self.on_change_main_library_dir)
+        lib_t_row.addWidget(self.tuning_lib_dir_input)
+        lib_t_row.addWidget(self.tuning_lib_browse_btn)
+        lib_t_layout.addLayout(lib_t_row)
+        tuning_layout.addWidget(lib_tuning_card)
+
+        tuning_card = QFrame()
+        tuning_card.setObjectName("card_frame")
+        t_card_layout = QVBoxLayout(tuning_card)
+        t_card_layout.setContentsMargins(14, 12, 14, 12)
+        t_card_layout.setSpacing(10)
+
+        t_title = QLabel("✨ APPLICATION PREFERENCES & PERFORMANCE")
+        t_title.setObjectName("section_title")
+        t_card_layout.addWidget(t_title)
+
+        self.enable_animations_cb = QCheckBox("✨ UI Micro-Animations (Smooth progress bar interpolation, card fade-ins, glow transitions)")
+        self.enable_animations_cb.setChecked(self.config_manager.get_enable_animations())
+        self.enable_animations_cb.toggled.connect(self.on_animations_toggled)
+        t_card_layout.addWidget(self.enable_animations_cb)
+
+        self.clipboard_sniffer_cb = QCheckBox("📋 Clipboard Auto-Sniffer (Detect media links on clipboard & offer 1-click ingest banner)")
+        self.clipboard_sniffer_cb.setChecked(self.config_manager.get_clipboard_sniffer())
+        self.clipboard_sniffer_cb.toggled.connect(self.on_clipboard_sniffer_toggled)
+        t_card_layout.addWidget(self.clipboard_sniffer_cb)
+
+        speed_row = QHBoxLayout()
+        speed_lbl = QLabel("🌐 Global Bandwidth Limiter:")
+        speed_lbl.setStyleSheet("color: #e2e8f0; font-size: 12px;")
+        speed_row.addWidget(speed_lbl)
+        self.global_speed_combo = QComboBox()
+        self.global_speed_combo.addItems([
+            "0 (Unlimited / Max Speed)",
+            "2M (2 MB/s)",
+            "5M (5 MB/s)",
+            "10M (10 MB/s)",
+            "25M (25 MB/s)"
+        ])
+        curr_spd = self.config_manager.get_global_speed_limit()
+        for i in range(self.global_speed_combo.count()):
+            if self.global_speed_combo.itemText(i).startswith(curr_spd):
+                self.global_speed_combo.setCurrentIndex(i)
+                break
+        self.global_speed_combo.currentTextChanged.connect(self.on_global_speed_changed)
+        speed_row.addWidget(self.global_speed_combo, 1)
+        t_card_layout.addLayout(speed_row)
+
+        tuning_layout.addWidget(tuning_card)
+
+        # Developer & Credits Card
+        about_card = QFrame()
+        about_card.setObjectName("card_frame")
+        about_layout = QVBoxLayout(about_card)
+        about_layout.setContentsMargins(14, 12, 14, 12)
+        about_layout.setSpacing(10)
+
+        about_title = QLabel("🐙 DEVELOPER & CREDITS")
+        about_title.setObjectName("section_title")
+        about_layout.addWidget(about_title)
+
+        about_desc = QLabel("Nexus Media Ingest is crafted by <b>@ssprata</b>. Explore other tools, scripts, and open-source projects on GitHub:")
+        about_desc.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        about_layout.addWidget(about_desc)
+
+        about_btn_row = QHBoxLayout()
+        about_btn_row.setSpacing(10)
+
+        dev_gh_btn = QPushButton("🐙 Visit @ssprata on GitHub ↗")
+        dev_gh_btn.setObjectName("neon_purple_btn")
+        dev_gh_btn.setFixedHeight(28)
+        dev_gh_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/ssprata")))
+        about_btn_row.addWidget(dev_gh_btn)
+
+        repo_gh_btn = QPushButton("⭐ Nexus Repository ↗")
+        repo_gh_btn.setObjectName("neon_cyan_btn")
+        repo_gh_btn.setFixedHeight(28)
+        repo_gh_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/ssprata/multi-downloader-tool")))
+        about_btn_row.addWidget(repo_gh_btn)
+
+        about_btn_row.addStretch()
+        about_layout.addLayout(about_btn_row)
+        tuning_layout.addWidget(about_card)
+
+        tuning_layout.addStretch()
+        self.main_hub_tabs.addTab(self.tuning_tab, "✨ App Tuning")
 
         workspace_layout.addWidget(self.main_hub_tabs, 1)
         main_splitter.addWidget(workspace)
-        main_splitter.setSizes([310, 870])
+        main_splitter.setSizes([320, 880])
 
         # Connect auto-save signals for tab inputs
         self.connect_auto_save_signals()
         self.update_cookie_header_badge()
+
+    def on_tab_changed_animate(self, index):
+        if not self.config_manager.get_enable_animations():
+            return
+        widget = self.main_hub_tabs.widget(index)
+        if widget:
+            effect = QGraphicsOpacityEffect(widget)
+            widget.setGraphicsEffect(effect)
+            self._tab_fade_anim = QPropertyAnimation(effect, b"opacity")
+            self._tab_fade_anim.setDuration(160)
+            self._tab_fade_anim.setStartValue(0.15)
+            self._tab_fade_anim.setEndValue(1.0)
+            self._tab_fade_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+            self._tab_fade_anim.start()
 
     def on_concurrency_changed(self, val):
         self.max_concurrent_downloads = int(val)
@@ -1959,7 +2139,7 @@ class MainWindow(QMainWindow):
         active_count = len(self.active_workers)
         queued_count = len(self.pending_queue)
         self.queue_count_lbl.setText(f"Queue: {active_count} active | {queued_count} queued")
-        self.main_hub_tabs.setTabText(0, f"📥 Active Queue ({active_count + queued_count})")
+        self.main_hub_tabs.setTabText(0, f"⚡ Ingest & Queue ({active_count + queued_count})")
         self.update_aggregate_speed()
 
     def update_aggregate_speed(self):
@@ -2841,6 +3021,26 @@ class MainWindow(QMainWindow):
             self.prof_dir_btn.setEnabled(True)
             self.prof_dir_btn.setToolTip("Browse custom export directory")
 
+        # Update sidebar snapshot card & armed banner in Ingest & Queue
+        prof_name = active_prof.get("name", "Default")
+        prof_tool = active_prof.get("tool", "yt-dlp")
+        disp_dir = self.prof_dir_input.text() if hasattr(self, "prof_dir_input") else ""
+
+        if hasattr(self, "snapshot_name_lbl"):
+            self.snapshot_name_lbl.setText(prof_name)
+        if hasattr(self, "snapshot_tool_badge"):
+            self.snapshot_tool_badge.setText(prof_tool)
+        if hasattr(self, "snapshot_path_lbl"):
+            self.snapshot_path_lbl.setText(disp_dir)
+            self.snapshot_path_lbl.setToolTip(f"Export Path:\n{disp_dir}")
+
+        if hasattr(self, "armed_profile_lbl"):
+            self.armed_profile_lbl.setText(
+                f"🎯 ARMED PROFILE: <b style='color:#ffffff;'>{prof_name}</b>  |  "
+                f"ENGINE: <b style='color:#00f0ff;'>{prof_tool}</b>  |  "
+                f"FOLDER: <span style='color:#94a3b8; font-family:monospace;'>{disp_dir}</span>"
+            )
+
     def on_auto_path_toggled(self, checked):
         if not self.is_loading_profile:
             self.update_profile_export_dir_preview()
@@ -3114,7 +3314,7 @@ class MainWindow(QMainWindow):
         CyberMessageBox.show_info(self, "Diagnostics Complete", f"Diagnostic suite completed: {working_count}/{len(results)} engines operational.", border_color="#00f0ff")
 
     def navigate_to_engine(self, tool_name):
-        self.main_hub_tabs.setCurrentIndex(1)
+        self.main_hub_tabs.setCurrentIndex(2)
         tool_map = {
             "yt-dlp": 0,
             "aria2c": 1,
@@ -3406,7 +3606,7 @@ class MainWindow(QMainWindow):
             if not target_path:
                 progress_card.set_error(f"Missing engine: '{target_tool}'")
                 self.on_download_log(download_id, f"[Nexus Ingest] [ERROR] The engine '{target_tool}' is required but not installed.\n")
-                self.main_hub_tabs.setCurrentIndex(1) # Switch to Engine Center
+                self.main_hub_tabs.setCurrentIndex(2) # Switch to Engine Center
                 continue
 
             # Launch asynchronous metadata and thumbnail probe

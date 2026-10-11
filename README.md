@@ -87,10 +87,10 @@ All settings, profiles, and directories are stored in `config.json`. The applica
   "active_profile": "Downloads",
   "profiles": [
     {
-      "name": "Sprata MP4",
+      "name": "Web Media MP4",
       "tool": "yt-dlp",
-      "folder": "Sprata",
-      "export_dir": "F:\\Sprata\\Mp4",
+      "folder": "Videos",
+      "export_dir": "",
       "aria2_settings": {
         "max_connection_per_server": 16,
         "split": 16,
@@ -159,3 +159,17 @@ Downloads are spawned asynchronously using Python's `subprocess.Popen`. Standard
 * **aria2c Parsing**: Matches percent progress `(15%)`, current speed `CN:16 DL:4.2MiB`, and connection counts.
 * **yt-dlp Parsing**: Matches progress patterns `[download]  45.2% of  120.50MiB at  3.12MiB/s ETA 00:24`.
 * **gallery-dl Parsing**: Logs output matching downloaded targets.
+
+---
+
+## Author & Credits
+
+Created and maintained by **[@ssprata](https://github.com/ssprata)**  
+* GitHub: [https://github.com/ssprata](https://github.com/ssprata)
+* Project Repository: [https://github.com/ssprata/multi-downloader-tool](https://github.com/ssprata/multi-downloader-tool)
+
+---
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details. Built using open-source utilities (`yt-dlp`, `aria2`, `ffmpeg`, `spotdl`, `gallery-dl`, `instaloader`).
