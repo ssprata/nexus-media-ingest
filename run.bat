@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 echo ===================================================
-echo   Cyberpunk Multi-Downloader Setup and Execution
+echo   Nexus - High-Speed Media Ingest Setup
 echo ===================================================
 
 :: Check for Python in PATH or Local AppData

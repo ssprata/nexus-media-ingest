@@ -122,6 +122,21 @@ class DependencyManager:
             except ImportError:
                 return None
 
+        if name == "spotdl":
+            try:
+                import spotdl
+                import sys
+                return sys.executable
+            except ImportError:
+                import sys
+                scripts_spotdl = os.path.join(os.path.dirname(sys.executable), "spotdl.exe")
+                if os.path.exists(scripts_spotdl):
+                    return scripts_spotdl
+                path = os.path.join(BIN_DIR, "spotdl.exe")
+                if os.path.exists(path):
+                    return path
+                return None
+
         info = TOOLS[name]
         if name == "ffmpeg":
             ffmpeg_path = os.path.join(BIN_DIR, "ffmpeg.exe")
@@ -173,6 +188,11 @@ class DependencyManager:
                 if res.returncode == 0 and res.stdout.strip():
                     return res.stdout.strip()
             elif name == "spotdl":
+                try:
+                    import spotdl
+                    return getattr(spotdl, "__version__", "Installed")
+                except ImportError:
+                    pass
                 res = subprocess.run([path, "--version"], capture_output=True, text=True, timeout=5, creationflags=creationflags)
                 if res.returncode == 0 and res.stdout.strip():
                     return res.stdout.strip()
@@ -182,6 +202,78 @@ class DependencyManager:
         except Exception:
             return "Installed"
         return "Installed"
+
+    def quick_test_tool(self, name):
+        """
+        Runs a fast non-destructive diagnostic check on the engine.
+        Returns (status: str, detail_message: str)
+        status: "working" (green), "warning" (yellow), "outdated" (purple), "offline" (red)
+        """
+        path = self.get_tool_path(name)
+        if not path:
+            return ("offline", "Missing binary or python module")
+
+        import subprocess
+        creationflags = 0
+        if os.name == 'nt':
+            creationflags = subprocess.CREATE_NO_WINDOW
+
+        try:
+            if name == "yt-dlp":
+                res = subprocess.run([path, "--version"], capture_output=True, text=True, timeout=5, creationflags=creationflags)
+                if res.returncode == 0:
+                    ver = res.stdout.strip()
+                    return ("working", f"Operational (v{ver})")
+                return ("warning", f"Warning: exit code {res.returncode}")
+            elif name == "aria2c":
+                res = subprocess.run([path, "-v"], capture_output=True, text=True, timeout=5, creationflags=creationflags)
+                if res.returncode == 0:
+                    first_line = res.stdout.splitlines()[0] if res.stdout.splitlines() else ""
+                    ver = first_line.replace("aria2 version ", "").strip()
+                    return ("working", f"Operational (v{ver})")
+                return ("warning", f"Warning: exit code {res.returncode}")
+            elif name == "ffmpeg":
+                res1 = subprocess.run([path, "-version"], capture_output=True, text=True, timeout=5, creationflags=creationflags)
+                ffprobe_path = os.path.join(BIN_DIR, "ffprobe.exe")
+                res2 = subprocess.run([ffprobe_path, "-version"], capture_output=True, text=True, timeout=5, creationflags=creationflags) if os.path.exists(ffprobe_path) else None
+                if res1.returncode == 0 and (res2 is None or res2.returncode == 0):
+                    first_line = res1.stdout.splitlines()[0] if res1.stdout.splitlines() else ""
+                    parts = first_line.split("version")
+                    ver = parts[1].split(" ")[1].strip() if len(parts) > 1 else "Ready"
+                    return ("working", f"Operational (v{ver})")
+                return ("warning", "Warning: ffmpeg or ffprobe reported errors")
+            elif name == "spotdl":
+                ver = None
+                try:
+                    import spotdl
+                    ver = getattr(spotdl, "__version__", None)
+                except ImportError:
+                    pass
+                if not ver:
+                    res = subprocess.run([path, "--version"], capture_output=True, text=True, timeout=5, creationflags=creationflags)
+                    if res.returncode == 0:
+                        ver = res.stdout.strip()
+                if ver:
+                    return ("working", f"Operational (v{ver})")
+                return ("warning", "SpotDL installed but version query timed out")
+            elif name == "gallery-dl":
+                res = subprocess.run([path, "--version"], capture_output=True, text=True, timeout=5, creationflags=creationflags)
+                if res.returncode == 0:
+                    ver = res.stdout.strip()
+                    return ("working", f"Operational (v{ver})")
+                return ("warning", f"Warning: exit code {res.returncode}")
+            elif name == "instagram":
+                try:
+                    import instaloader
+                    ver = getattr(instaloader, "__version__", "Ready")
+                    return ("working", f"Operational (v{ver})")
+                except ImportError:
+                    return ("offline", "Instaloader python library missing")
+        except subprocess.TimeoutExpired:
+            return ("warning", "Quick diagnostic test timed out")
+        except Exception as e:
+            return ("warning", f"Diagnostic warning: {str(e)[:40]}")
+        return ("working", "Installed")
 
     def update_tool(self, name, progress_callback=None):
         """Updates a tool to the latest version."""
@@ -216,22 +308,23 @@ class DependencyManager:
 
         _cleanup_old_binaries()
 
-        if name == "instagram":
+        if name in ["instagram", "spotdl"]:
             import subprocess
             import sys
+            pkg_name = "instaloader" if name == "instagram" else "spotdl"
             try:
                 if progress_callback:
-                    progress_callback(20.0)
+                    progress_callback(25.0)
                 
                 creationflags = 0
                 if os.name == 'nt':
                     creationflags = subprocess.CREATE_NO_WINDOW
                 
                 subprocess.run(
-                    [sys.executable, "-m", "pip", "install", "--upgrade", "instaloader"],
+                    [sys.executable, "-m", "pip", "install", "--upgrade", pkg_name],
                     check=True,
                     capture_output=True,
-                    timeout=90,
+                    timeout=120,
                     creationflags=creationflags
                 )
                 
@@ -239,7 +332,9 @@ class DependencyManager:
                     progress_callback(100.0)
                 return sys.executable
             except Exception as e:
-                raise Exception(f"Failed to install/upgrade instaloader package: {e}")
+                if name == "instagram":
+                    raise Exception(f"Failed to install/upgrade {pkg_name} package: {e}")
+                print(f"Pip install failed for spotdl ({e}), falling back to binary download...")
 
         info = TOOLS[name]
         url = info["url"]

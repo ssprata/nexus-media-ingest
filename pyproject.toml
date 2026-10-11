@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nexus-media-ingest"
+version = "1.0.0"
+description = "High-Speed Multi-Threaded Media Batch Ingest"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    { name = "Nexus Team" }
+]
+dependencies = [
+    "PyQt6>=6.4.0",
+    "requests>=2.31.0",
+    "yt-dlp>=2026.8.19",
+    "instaloader>=4.13",
+]
+
+[project.gui-scripts]
+nexus = "main:main"
+
+[tool.nexus]
+displayName = "Nexus"
+productName = "Nexus"
+description = "High-Speed Multi-Threaded Media Batch Ingest"

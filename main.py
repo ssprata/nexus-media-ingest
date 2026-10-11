@@ -12,7 +12,7 @@ class FirstTimeSetupWindow(QWidget):
     def __init__(self, dep_manager):
         super().__init__()
         self.dep_manager = dep_manager
-        self.setWindowTitle("Initializing Engines...")
+        self.setWindowTitle("Nexus — Initializing Engines...")
         self.setFixedSize(500, 250)
         
         # Frameless glowing window
@@ -41,7 +41,7 @@ class FirstTimeSetupWindow(QWidget):
         layout.setSpacing(20)
 
         # Glowing Neon title
-        self.title_lbl = QLabel("INITIALIZING SYNTH DOWNLOADER")
+        self.title_lbl = QLabel("INITIALIZING NEXUS INGEST")
         self.title_lbl.setStyleSheet("font-size: 20px; font-weight: bold; color: #ff007f; letter-spacing: 2px;")
         self.title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.title_lbl)
@@ -99,6 +99,8 @@ class FirstTimeSetupWindow(QWidget):
 
 def main():
     app = QApplication(sys.argv)
+    app.setApplicationName("nexus-media-ingest")
+    app.setApplicationDisplayName("Nexus")
     app.setStyleSheet(CYBERPUNK_STYLE)
 
     dep_manager = DependencyManager()

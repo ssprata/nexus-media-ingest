@@ -167,6 +167,9 @@ class DownloadWorker(QThread):
             if self.tool_name == "aria2c":
                 cmd.append("-d")
                 cmd.append(self.export_dir)
+                cmd.append("-c")
+                cmd.append("--auto-file-renaming=false")
+                cmd.append("--content-disposition-default-utf8=true")
                 
                 # Append connections & split
                 connections = self.settings.get("max_connection_per_server", 16)
@@ -226,6 +229,9 @@ class DownloadWorker(QThread):
                 cmd.append("--no-cache-dir")
                 cmd.append("--geo-bypass")
                 
+                # Ensure yt-dlp prints the final moved/merged file path for precise post-processing
+                cmd.extend(["--print", "after_move:filepath"])
+                
                 # Cookie authentication to bypass "Sign in to confirm you're not a bot"
                 cookie_source = self.settings.get("cookie_source", "none").lower()
                 cookie_file = self.settings.get("cookie_file", "").strip()
@@ -233,9 +239,9 @@ class DownloadWorker(QThread):
 
                 if cookie_source in ["chrome", "brave", "firefox", "edge", "opera", "vivaldi", "safari"]:
                     cmd.extend(["--cookies-from-browser", cookie_source])
-                elif (cookie_source == "custom" or cookie_source == "none") and cookie_file and os.path.exists(cookie_file):
+                elif cookie_source == "custom" and cookie_file and os.path.exists(cookie_file):
                     cmd.extend(["--cookies", cookie_file])
-                elif os.path.exists(default_root_cookies) and os.path.getsize(default_root_cookies) > 0:
+                elif cookie_source != "none" and os.path.exists(default_root_cookies) and os.path.getsize(default_root_cookies) > 0:
                     cmd.extend(["--cookies", default_root_cookies])
 
                 # Optional Proxy configuration
@@ -256,6 +262,11 @@ class DownloadWorker(QThread):
                 if bin_dir not in env.get("PATH", ""):
                     env["PATH"] = bin_dir + os.pathsep + env.get("PATH", "")
                 
+                # Rate limit
+                rate_limit = self.settings.get("max_download_limit", "0")
+                if rate_limit and rate_limit != "0":
+                    cmd.extend(["--limit-rate", rate_limit])
+
                 # Custom flags
                 custom_flags = self.settings.get("custom_flags", "")
                 if custom_flags:
@@ -275,24 +286,39 @@ class DownloadWorker(QThread):
                 cmd.append(self.url)
                 
             elif self.tool_name == "spotdl":
-                # spotdl uses 'download' command
-                cmd.append("download")
-                cmd.append(self.url)
+                # Check if tool_path is python or standalone exe
+                if self.tool_path.lower().endswith("python.exe"):
+                    cmd.extend(["-m", "spotdl", "download", self.url])
+                else:
+                    cmd.extend(["download", self.url])
                 
-                # Use --simple-tui for cleaner progress logging
                 cmd.append("--simple-tui")
                 
-                # Add format if specified
                 audio_fmt = self.settings.get("audio_format", "mp3")
-                cmd.append("--format")
-                cmd.append(audio_fmt)
+                cmd.extend(["--format", audio_fmt])
                 
-                # Add quality/bitrate
-                bitrate = self.settings.get("audio_quality", "best")
-                cmd.append("--bitrate")
-                cmd.append(bitrate)
-                
-                # Custom flags
+                bitrate = self.settings.get("audio_quality", "auto")
+                if not bitrate or bitrate == "best":
+                    bitrate = "auto"
+                cmd.extend(["--bitrate", str(bitrate)])
+
+                # Explicit destination template inside export_dir
+                out_tmpl = os.path.join(self.export_dir, "{artist} - {title}.{output-ext}")
+                cmd.extend(["--output", out_tmpl])
+
+                # Inject cookies if available
+                default_root_cookies = os.path.abspath("cookies.txt")
+                cookie_file = self.settings.get("cookie_file", "").strip()
+                if cookie_file and os.path.exists(cookie_file):
+                    cmd.extend(["--cookie-file", cookie_file])
+                elif os.path.exists(default_root_cookies) and os.path.getsize(default_root_cookies) > 0:
+                    cmd.extend(["--cookie-file", default_root_cookies])
+
+                # Locate local ffmpeg.exe
+                ffmpeg_exe = os.path.abspath(os.path.join("bin", "ffmpeg.exe"))
+                if os.path.exists(ffmpeg_exe):
+                    cmd.extend(["--ffmpeg", ffmpeg_exe])
+
                 custom_flags = self.settings.get("custom_flags", "")
                 if custom_flags:
                     cmd.extend(shlex.split(custom_flags))
@@ -343,7 +369,8 @@ class DownloadWorker(QThread):
 
             # Log command line to logs pane
             cmd_str = " ".join([f'"{arg}"' if ' ' in arg else arg for arg in cmd])
-            self.log_received.emit(self.download_id, f"Executing command: {cmd_str}\n")
+            self.log_received.emit(self.download_id, f"=== [Nexus Ingest] Starting Task {self.download_id} ===\n[Nexus Ingest] Destination Workspace: {self.export_dir}\n")
+            self.log_received.emit(self.download_id, f"[Nexus Ingest] Executing command: {cmd_str}\n")
 
             # Spawn subprocess
             cwd_dir = self.export_dir if self.tool_name in ["spotdl", "instagram"] else None
@@ -360,26 +387,41 @@ class DownloadWorker(QThread):
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
 
-            # Read output stream line by line
-            while True:
-                if self._is_cancelled:
-                    self.log_received.emit(self.download_id, "\n[INFO] Download cancelled by user.\n")
-                    self.terminate_process()
-                    self.download_completed.emit(self.download_id, False, "Cancelled")
-                    return
-                
-                line = self.process.stdout.readline()
-                if not line:
-                    break
-                
-                clean_line = line.strip()
-                if clean_line:
-                    self.log_received.emit(self.download_id, line)
-                    self.parse_line_progress(clean_line)
-            
+            # Read output stream line by line safely
+            try:
+                while True:
+                    if self._is_cancelled:
+                        break
+                    
+                    line = self.process.stdout.readline()
+                    if not line:
+                        break
+                    
+                    clean_line = line.strip()
+                    if clean_line:
+                        self.log_received.emit(self.download_id, line)
+                        self.parse_line_progress(clean_line)
+            except (ValueError, OSError, Exception):
+                pass
+            finally:
+                try:
+                    if self.process and self.process.stdout:
+                        self.process.stdout.close()
+                except Exception:
+                    pass
+
+            if self._is_cancelled:
+                self.log_received.emit(self.download_id, "\n[Nexus Ingest] [INFO] Download cancelled by user.\n")
+                self.terminate_process()
+                self.download_completed.emit(self.download_id, False, "Cancelled")
+                return
+
             # Wait for exit code
-            self.process.wait()
-            exit_code = self.process.returncode
+            try:
+                self.process.wait(timeout=10)
+                exit_code = self.process.returncode
+            except Exception:
+                exit_code = -1
             
             if self._is_cancelled:
                 self.download_completed.emit(self.download_id, False, "Cancelled")
@@ -393,7 +435,7 @@ class DownloadWorker(QThread):
                 if self.tool_name == "instagram":
                     output_type = self.settings.get("output_type", "video_mp4")
                     if output_type in ["audio_m4a", "audio_mp3"]:
-                        self.log_received.emit(self.download_id, "\n[INFO] Extracting audio from downloaded Instagram video(s)...\n")
+                        self.log_received.emit(self.download_id, "\n[Nexus Ingest] [INFO] Extracting audio from downloaded Instagram video(s)...\n")
                         # Find all downloaded .mp4 files recursively inside self.export_dir
                         for root, dirs, files in os.walk(self.export_dir):
                             for file in files:
@@ -414,19 +456,19 @@ class DownloadWorker(QThread):
                                     else:
                                         ffmpeg_cmd.extend(["-q:a", "2", audio_path])
                                         
-                                    self.log_received.emit(self.download_id, f"Running FFmpeg: {' '.join(ffmpeg_cmd)}\n")
+                                    self.log_received.emit(self.download_id, f"[Nexus Ingest] Running FFmpeg: {' '.join(ffmpeg_cmd)}\n")
                                     try:
                                         creationflags = 0
                                         if os.name == 'nt':
                                             creationflags = subprocess.CREATE_NO_WINDOW
                                         res = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, creationflags=creationflags)
                                         if res.returncode == 0:
-                                            self.log_received.emit(self.download_id, f"Extracted audio: {audio_path}\n")
+                                            self.log_received.emit(self.download_id, f"[Nexus Ingest] Extracted audio: {audio_path}\n")
                                             os.remove(mp4_path)
                                         else:
-                                            self.log_received.emit(self.download_id, f"[WARNING] FFmpeg extraction failed: {res.stderr}\n")
+                                            self.log_received.emit(self.download_id, f"[Nexus Ingest] [WARNING] FFmpeg extraction failed: {res.stderr}\n")
                                     except Exception as ex:
-                                        self.log_received.emit(self.download_id, f"[WARNING] Failed to run FFmpeg: {str(ex)}\n")
+                                        self.log_received.emit(self.download_id, f"[Nexus Ingest] [WARNING] Failed to run FFmpeg: {str(ex)}\n")
 
                 self.progress_updated.emit(self.download_id, 100, "Done", "0s", "Completed successfully")
                 self.download_completed.emit(self.download_id, True, "")
@@ -434,7 +476,7 @@ class DownloadWorker(QThread):
                 self.download_completed.emit(self.download_id, False, f"Process exited with code {exit_code}")
 
         except Exception as e:
-            self.log_received.emit(self.download_id, f"\n[ERROR] Exception occurred: {str(e)}\n")
+            self.log_received.emit(self.download_id, f"\n[Nexus Ingest] [ERROR] Exception occurred: {str(e)}\n")
             self.download_completed.emit(self.download_id, False, str(e))
 
     def process_premiere_compatibility(self):
@@ -469,7 +511,7 @@ class DownloadWorker(QThread):
                 return
 
             vcodec, acodec, duration = probe_media_codecs(target_file, ffprobe_exe)
-            self.log_received.emit(self.download_id, f"\n[INFO] Premiere Pro Compatibility Probe: Video={vcodec}, Audio={acodec}\n")
+            self.log_received.emit(self.download_id, f"\n[Nexus Ingest] Premiere Pro Compatibility Probe: Video={vcodec}, Audio={acodec}\n")
 
             prem_vcodecs = ["h264", "hevc", "prores", "dnxhd", "mjpeg"]
             prem_acodecs = ["aac", "mp3", "pcm_s16le", "pcm_s24le", "ac3"]
@@ -478,7 +520,7 @@ class DownloadWorker(QThread):
             needs_audio_transcode = acodec and (acodec not in prem_acodecs or acodec in ["opus", "vorbis", "flac"])
 
             if not needs_video_transcode and not needs_audio_transcode:
-                self.log_received.emit(self.download_id, "[SUCCESS] Media is 100% Premiere Pro ready (H.264 / AAC).\n")
+                self.log_received.emit(self.download_id, "[Nexus Ingest] [SUCCESS] Media is 100% Premiere Pro ready (H.264 / AAC).\n")
                 return
 
             base_dir = os.path.dirname(target_file)
@@ -490,7 +532,7 @@ class DownloadWorker(QThread):
 
             if needs_video_transcode:
                 enc_args = get_best_h264_encoder_args(ffmpeg_exe)
-                self.log_received.emit(self.download_id, f"[INFO] Transcoding {vcodec} to H.264 for Premiere Pro using {' '.join(enc_args)}...\n")
+                self.log_received.emit(self.download_id, f"[Nexus Ingest] Transcoding {vcodec} to H.264 for Premiere Pro using {' '.join(enc_args)}...\n")
                 ff_cmd.extend(enc_args)
             else:
                 ff_cmd.extend(["-c:v", "copy"])
@@ -502,7 +544,7 @@ class DownloadWorker(QThread):
 
             ff_cmd.extend(["-movflags", "+faststart", temp_out])
 
-            self.log_received.emit(self.download_id, f"Running FFmpeg: {' '.join(ff_cmd)}\n")
+            self.log_received.emit(self.download_id, f"[Nexus Ingest] Running FFmpeg: {' '.join(ff_cmd)}\n")
             self.progress_updated.emit(self.download_id, 99, "-", "-", "Optimizing for Premiere Pro (H.264/AAC)...")
 
             creationflags = 0
@@ -562,33 +604,51 @@ class DownloadWorker(QThread):
                     elif os.path.exists(final_mp4):
                         os.remove(final_mp4)
                     os.replace(temp_out, final_mp4)
-                    self.log_received.emit(self.download_id, f"[SUCCESS] 🎬 File converted to Premiere Pro ready format: {final_mp4}\n")
+                    self.downloaded_files.append(final_mp4)
+                    self.log_received.emit(self.download_id, f"[Nexus Ingest] [SUCCESS] 🎬 File converted to Premiere Pro ready format: {final_mp4}\n")
                 except Exception as e:
-                    self.log_received.emit(self.download_id, f"[WARNING] Error renaming converted file: {str(e)}\n")
+                    self.log_received.emit(self.download_id, f"[Nexus Ingest] [WARNING] Error renaming converted file: {str(e)}\n")
             else:
-                self.log_received.emit(self.download_id, f"[WARNING] Premiere Pro transcoding failed with code {proc.returncode}\n")
+                self.log_received.emit(self.download_id, f"[Nexus Ingest] [WARNING] Premiere Pro transcoding failed with code {proc.returncode}\n")
         except Exception as ex:
-            self.log_received.emit(self.download_id, f"[WARNING] Premiere Pro post-processor exception: {str(ex)}\n")
+            self.log_received.emit(self.download_id, f"[Nexus Ingest] [WARNING] Premiere Pro post-processor exception: {str(ex)}\n")
+
+    def get_final_file(self):
+        for f in reversed(self.downloaded_files):
+            if os.path.exists(f) and not f.endswith((".part", ".ytdl", ".temp", ".tmp")):
+                return f
+        return ""
 
     def cancel(self):
         self._is_cancelled = True
         self.terminate_process()
 
     def terminate_process(self):
-        if self.process:
+        if self.process and self.process.poll() is None:
+            pid = self.process.pid
             try:
-                self.process.terminate()
-                self.process.wait(timeout=3)
+                # Forcefully terminate process and all its child processes on Windows
+                subprocess.run(
+                    ["taskkill", "/F", "/T", "/PID", str(pid)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=5,
+                    creationflags=subprocess.CREATE_NO_WINDOW
+                )
             except Exception:
-                try:
-                    self.process.kill()
-                except Exception:
-                    pass
+                pass
+            try:
+                self.process.kill()
+            except Exception:
+                pass
 
     def parse_line_progress(self, line):
         if self.tool_name == "yt-dlp":
             # Track destination or merged file
-            if "Destination:" in line:
+            if os.path.isabs(line) and os.path.exists(line) and not line.endswith((".part", ".ytdl", ".temp", ".tmp")):
+                if line not in self.downloaded_files:
+                    self.downloaded_files.append(line)
+            elif "Destination:" in line:
                 dest = line.split("Destination:", 1)[1].strip()
                 if dest and not dest.endswith((".part", ".ytdl")):
                     self.downloaded_files.append(dest)
@@ -652,6 +712,16 @@ class DownloadWorker(QThread):
                 return
 
         elif self.tool_name == "spotdl":
+            if "Downloaded \"" in line:
+                m = re.search(r'Downloaded "([^"]+)"', line)
+                if m:
+                    song_name = m.group(1)
+                    for ext in [".mp3", ".m4a", ".flac", ".opus", ".ogg", ".wav"]:
+                        cand = os.path.join(self.export_dir, f"{song_name}{ext}")
+                        if os.path.exists(cand):
+                            if cand not in self.downloaded_files:
+                                self.downloaded_files.append(cand)
+                            break
             # Parse percentage (e.g., 45% or 45.2%)
             match = re.search(r'(\d+)%', line)
             if match:
