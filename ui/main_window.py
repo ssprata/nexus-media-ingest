@@ -47,8 +47,13 @@ class CyberMessageBox(QDialog):
         self.anim.setStartValue(0.0)
         self.anim.setEndValue(1.0)
         self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.anim.finished.connect(self._cleanup_opacity_effect)
         self.anim.start()
         self.setup_ui(title, message, is_confirm, border_color)
+
+    def _cleanup_opacity_effect(self):
+        self.setGraphicsEffect(None)
+        self.opacity_effect = None
 
     def setup_ui(self, title, message, is_confirm, border_color):
         layout = QVBoxLayout(self)
@@ -142,9 +147,14 @@ class CyberInputDialog(QDialog):
         self.anim.setStartValue(0.0)
         self.anim.setEndValue(1.0)
         self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.anim.finished.connect(self._cleanup_opacity_effect)
         self.anim.start()
         self.value = ""
         self.setup_ui(title, label_text, default_value)
+
+    def _cleanup_opacity_effect(self):
+        self.setGraphicsEffect(None)
+        self.opacity_effect = None
 
     def setup_ui(self, title, label_text, default_value):
         layout = QVBoxLayout(self)
@@ -221,10 +231,15 @@ class CyberChoiceDialog(QDialog):
         self.anim.setStartValue(0.0)
         self.anim.setEndValue(1.0)
         self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.anim.finished.connect(self._cleanup_opacity_effect)
         self.anim.start()
 
         self.selected_choice = None
         self.setup_ui(title, message, opt1_text, opt2_text, cancel_text)
+
+    def _cleanup_opacity_effect(self):
+        self.setGraphicsEffect(None)
+        self.opacity_effect = None
 
     def setup_ui(self, title, message, opt1_text, opt2_text, cancel_text):
         layout = QVBoxLayout(self)
@@ -345,9 +360,14 @@ class CyberPlaylistDialog(QDialog):
         self.anim.setStartValue(0.0)
         self.anim.setEndValue(1.0)
         self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.anim.finished.connect(self._cleanup_opacity_effect)
         self.anim.start()
 
         self.setup_ui()
+
+    def _cleanup_opacity_effect(self):
+        self.setGraphicsEffect(None)
+        self.opacity_effect = None
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
@@ -875,12 +895,17 @@ class DownloadProgressWidget(QFrame):
             self.fade_anim.setStartValue(0.0)
             self.fade_anim.setEndValue(1.0)
             self.fade_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+            self.fade_anim.finished.connect(self._cleanup_fade_effect)
             self.fade_anim.start()
 
         # Smooth progress bar value transition animation
         self.progress_anim = QPropertyAnimation(self.progress_bar, b"value")
         self.progress_anim.setDuration(180)
         self.progress_anim.setEasingCurve(QEasingCurve.Type.OutQuad)
+
+    def _cleanup_fade_effect(self):
+        self.setGraphicsEffect(None)
+        self.opacity_effect = None
 
     def setup_ui(self):
         card_main_layout = QHBoxLayout(self)
@@ -962,6 +987,7 @@ class DownloadProgressWidget(QFrame):
 
         # Progress bar
         self.progress_bar = QProgressBar()
+        self.progress_bar.setTextVisible(False)
         self.progress_bar.setValue(0)
         self.progress_bar.setFixedHeight(11)
         layout.addWidget(self.progress_bar)
@@ -1210,10 +1236,7 @@ class CyberProfileBadge(QPushButton):
         painter.drawRoundedRect(QRectF(inset, inset, pill_w, pill_h), radius, radius)
 
         # 3. Text layout & moving horizontal gradient (Purple -> Black -> White -> Purple)
-        font = self.font()
-        font.setBold(True)
-        font.setPointSize(10)
-        font.setFamily("Segoe UI")
+        font = QFont("Segoe UI", 10, QFont.Weight.Bold)
         painter.setFont(font)
 
         fm = painter.fontMetrics()
@@ -1254,6 +1277,10 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Nexus — High-Speed Media Ingest")
         self.resize(1180, 820)
         self.setMinimumSize(980, 680)
+
+        # Ensure application baseline font metrics
+        if QApplication.instance():
+            QApplication.instance().setFont(QFont("Segoe UI", 10))
 
         # Managers
         self.config_manager = ConfigManager()
@@ -2227,18 +2254,10 @@ class MainWindow(QMainWindow):
         self.update_cookie_header_badge()
 
     def on_tab_changed_animate(self, index):
-        if not self.config_manager.get_enable_animations():
-            return
+        # Detach any graphics effects so tabs always render with native raster painting and crisp ClearType
         widget = self.main_hub_tabs.widget(index)
-        if widget:
-            effect = QGraphicsOpacityEffect(widget)
-            widget.setGraphicsEffect(effect)
-            self._tab_fade_anim = QPropertyAnimation(effect, b"opacity")
-            self._tab_fade_anim.setDuration(160)
-            self._tab_fade_anim.setStartValue(0.15)
-            self._tab_fade_anim.setEndValue(1.0)
-            self._tab_fade_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-            self._tab_fade_anim.start()
+        if widget and widget.graphicsEffect():
+            widget.setGraphicsEffect(None)
 
     def on_concurrency_changed(self, val):
         self.max_concurrent_downloads = int(val)

@@ -15,7 +15,7 @@ QMainWindow {
 QWidget {
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
     color: #e2e8f0;
-    font-size: 13px;
+    font-size: 10pt;
     selection-background-color: #7928ca;
     selection-color: #ffffff;
 }
@@ -453,6 +453,9 @@ QTabWidget#activity_tab_widget::pane {
     background-color: #020306;
     border-radius: 8px;
 }
+QTabWidget#activity_tab_widget > QWidget {
+    background-color: #020306;
+}
 QTabWidget#activity_tab_widget QTabBar::tab:selected {
     background-color: #020306;
     border-bottom: 2px solid #ff007f;
@@ -496,9 +499,8 @@ QProgressBar {
     background-color: #0a0c16;
     border: 1px solid #1a1e32;
     border-radius: 6px;
-    text-align: center;
     color: #ffffff;
-    font-size: 11px;
+    font-size: 9pt;
     font-weight: 700;
 }
 QProgressBar::chunk {

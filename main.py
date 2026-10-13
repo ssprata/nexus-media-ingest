@@ -1,6 +1,7 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QProgressBar
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QFont
 
 from ui.main_window import MainWindow, ToolDownloadWorker, CyberMessageBox
 from ui.styles import CYBERPUNK_STYLE
@@ -101,6 +102,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("nexus-media-ingest")
     app.setApplicationDisplayName("Nexus")
+    app.setFont(QFont("Segoe UI", 10))
     app.setStyleSheet(CYBERPUNK_STYLE)
 
     dep_manager = DependencyManager()
